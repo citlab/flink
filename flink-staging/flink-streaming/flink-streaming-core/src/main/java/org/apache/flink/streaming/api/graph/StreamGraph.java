@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,6 +41,10 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.state.StateHandleProvider;
 import org.apache.flink.streaming.api.collector.selector.OutputSelector;
+import org.apache.flink.streaming.api.constraint.StreamGraphConstraint;
+import org.apache.flink.streaming.api.constraint.StreamGraphSequence;
+import org.apache.flink.streaming.api.constraint.StreamGraphSequenceFinder;
+import org.apache.flink.streaming.api.constraint.identifier.ConstraintIdentifier;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamSource;
@@ -79,6 +84,13 @@ public class StreamGraph extends StreamingPlan {
 	protected Map<Integer, StreamLoop> vertexIDtoLoop;
 	private StateHandleProvider<?> stateHandleProvider;
 
+	private StreamGraphSequenceFinder sequenceFinder;
+	private Map<ConstraintIdentifier, Integer> constraintStarts;
+	private Map<ConstraintIdentifier, Integer> constraintEnds;
+	private Map<ConstraintIdentifier, Long> constraintLatencies;
+	private LinkedList<ConstraintIdentifier> identifiers;
+	private Map<ConstraintIdentifier, StreamGraphConstraint> constraints;
+
 	public StreamGraph(StreamExecutionEnvironment environment) {
 
 		this.environemnt = environment;
@@ -96,6 +108,13 @@ public class StreamGraph extends StreamingPlan {
 		streamLoops = new HashMap<Integer, StreamLoop>();
 		vertexIDtoLoop = new HashMap<Integer, StreamGraph.StreamLoop>();
 		sources = new HashSet<Integer>();
+
+		sequenceFinder = new StreamGraphSequenceFinder(this);
+		constraintStarts = new HashMap<ConstraintIdentifier, Integer>();
+		constraintEnds = new HashMap<ConstraintIdentifier, Integer>();
+		constraintLatencies = new HashMap<ConstraintIdentifier, Long>();
+		identifiers = new LinkedList<ConstraintIdentifier>();
+		constraints = new HashMap<ConstraintIdentifier, StreamGraphConstraint>();
 	}
 
 	protected ExecutionConfig getExecutionConfig() {
@@ -499,4 +518,52 @@ public class StreamGraph extends StreamingPlan {
 
 	}
 
+	/**
+	 * Returns the constraints defined for this graph.
+	 *
+	 * @return the constraints.
+	 */
+	public Map<ConstraintIdentifier, StreamGraphConstraint> getConstraints() {
+		return constraints;
+	}
+
+	public void beginLatencyConstraint(int beginId, ConstraintIdentifier identifier, long maxLatency) {
+		if (constraintStarts.containsKey(identifier)) {
+			throw new IllegalArgumentException(
+					String.format("The identifier \"%s\" has already been used for a constraint.", identifier.toString()));
+		}
+
+		constraintStarts.put(identifier, beginId);
+		constraintLatencies.put(identifier, maxLatency);
+		identifiers.add(identifier);
+	}
+
+	public void finishLatencyConstraint(int vertexId) {
+		ConstraintIdentifier identifier = identifiers.removeLast();
+		if (identifier == null) {
+			throw new IllegalStateException("There are no open latency constraints to finish.");
+		}
+		constraintEnds.put(identifier, vertexId);
+	}
+
+	public void constrainLatencyBetween(int beginId, int endId, long maxLatency, ConstraintIdentifier identifier) {
+		constraintStarts.put(identifier, beginId);
+		constraintEnds.put(identifier, endId);
+		constraintLatencies.put(identifier, maxLatency);
+	}
+
+	/**
+	 * Calculates the constraints. Call {@link #getConstraints()} to get the constraints themselves.
+	 */
+	public void calculateConstraints() {
+		for (ConstraintIdentifier identifier : constraintEnds.keySet()) {
+			int beginId = constraintStarts.get(identifier);
+			int endId = constraintEnds.get(identifier);
+			long maxLatency = constraintLatencies.get(identifier);
+
+			List<StreamGraphSequence> sequences = sequenceFinder.findAllSequencesBetween(beginId, endId);
+			StreamGraphConstraint constraint = new StreamGraphConstraint(sequences, maxLatency);
+			constraints.put(identifier, constraint);
+		}
+	}
 }
