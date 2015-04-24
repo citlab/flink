@@ -31,6 +31,9 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.jobgraph.AbstractJobVertex;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
+import org.apache.flink.runtime.jobgraph.IntermediateDataSet;
+import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.JobEdge;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
@@ -38,6 +41,8 @@ import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobgraph.tasks.JobSnapshottingSettings;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
+import org.apache.flink.streaming.api.constraint.StreamGraphConstraint;
+import org.apache.flink.streaming.api.constraint.StreamGraphSequenceElement;
 import org.apache.flink.streaming.api.graph.StreamGraph.StreamLoop;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperator.ChainingStrategy;
@@ -45,6 +50,13 @@ import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner.PartitioningStrategy;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationHead;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationTail;
+import org.apache.flink.streaming.statistics.CentralQosStatisticsHandler;
+import org.apache.flink.streaming.statistics.ConstraintUtil;
+import org.apache.flink.streaming.statistics.JobGraphSequence;
+import org.apache.flink.streaming.statistics.SequenceElement;
+import org.apache.flink.streaming.statistics.message.action.EdgeQosReporterConfig;
+import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosStatisticsForwarder;
 import org.apache.flink.util.InstantiationUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,6 +114,10 @@ public class StreamingJobGraphGenerator {
 			throw new RuntimeException("Config object could not be written to Job Configuration: ", e);
 		}
 		
+		if (streamGraph.hasLatencyConstraints()) {
+			setLatencyConstraints();
+		}
+
 		return jobGraph;
 	}
 
@@ -408,5 +424,96 @@ public class StreamingJobGraphGenerator {
 				jobGraph.setNumberOfExecutionRetries(Integer.MAX_VALUE);
 			}
 		}
+	}
+
+	private void setLatencyConstraints() {
+		if (streamGraph.isChainingEnabled()) {
+			// TODO: handle chaining
+			throw new RuntimeException("Sorry, chaining is not supported!");
+		}
+
+		jobGraph.setCustomStatisticsEnabled(true);
+		jobGraph.setCustomAbstractCentralStatisticsHandler(new CentralQosStatisticsHandler());
+		// central statistics handler (job manager) report interval
+		long reportInterval = streamGraph.getQosStatisticReportInterval();
+		jobGraph.setCustomStatisticsInterval(reportInterval);
+		// forwarder (task manager) report interval
+		jobGraph.getJobConfiguration().setLong(QosStatisticsForwarder.FORWARDER_REPORT_INTERVAL_KEY, reportInterval);
+
+		Set<StreamGraphConstraint> constraints = streamGraph.calculateConstraints();
+		for (StreamGraphConstraint constraint : constraints) {
+			JobGraphSequence seq = new JobGraphSequence();
+			int lastInputGateIndex = -1;
+
+			for (StreamGraphSequenceElement element : constraint.getSequence()) {
+				if (!element.isVertex()) {
+					AbstractJobVertex sourceVertex = jobVertices.get(element.getSourceVertexId());
+					AbstractJobVertex targetVertex = jobVertices.get(element.getTargetVertexId());
+					List<IntermediateDataSet> producedDataSets = sourceVertex.getProducedDataSets();
+					List<JobEdge> inputEdges = targetVertex.getInputs();
+					JobEdge edge = null;
+
+					for (JobEdge e : inputEdges) {
+						if (e.getSource().getProducer().getID().equals(sourceVertex.getID())) {
+							edge = e;
+							break;
+						}
+					}
+
+					int outputGateIndex = producedDataSets.indexOf(edge.getSource());
+					int inputGateIndex = inputEdges.indexOf(edge);
+
+					if (element.getTargetIndex() != outputGateIndex) {
+						throw new RuntimeException("Target and output gate index are not equal! This is Bug.");
+					}
+
+					addVertexQosConfig(seq, sourceVertex, lastInputGateIndex, outputGateIndex);
+					addEdgeQosConfig(seq, edge.getSourceId(),
+							sourceVertex, outputGateIndex, targetVertex, inputGateIndex);
+
+					lastInputGateIndex = inputGateIndex;
+				}
+			}
+
+			// add last vertex
+			AbstractJobVertex lastVertex = jobVertices.get(constraint.getSequence().getLast().getVertexID());
+			addVertexQosConfig(seq, lastVertex, lastInputGateIndex, -1);
+
+			// persist constraints in job graph
+			try {
+				String name = constraint.getName(seq.getFirstVertex().getName(), seq.getLastVertex().getName());
+				ConstraintUtil.defineLatencyConstraint(seq, constraint.getLatencyConstraintInMillis(), jobGraph, name);
+			} catch(IOException e) {
+				throw new RuntimeException("LatencyConstraint serialization failed.");
+			}
+		}
+	}
+
+	/**
+	 * Adds vertex to given sequence and qos reporter config to stream (task) config.
+	 */
+	private void addVertexQosConfig(JobGraphSequence seq,
+									AbstractJobVertex vertex, int inputGateIndex, int ouputGateIndex) {
+
+		SequenceElement e = seq.addVertex(vertex.getID(), vertex.getName(), inputGateIndex, ouputGateIndex);
+		VertexQosReporterConfig reporterConfig = VertexQosReporterConfig.fromSequenceElement(vertex, e);
+		StreamConfig streamConfig = new StreamConfig(vertex.getConfiguration());
+		streamConfig.addQosReporterConfigs(reporterConfig);
+	}
+
+	/**
+	 * Adds edge to given sequence and qos reporter config to source and target stream (task) configs.
+	 */
+	private void addEdgeQosConfig(JobGraphSequence seq, IntermediateDataSetID dataSetID,
+									AbstractJobVertex sourceVertex, int outputGateIndex,
+									AbstractJobVertex targetVertex, int inputGateIndex) {
+
+		seq.addEdge(sourceVertex.getID(), outputGateIndex, targetVertex.getID(), inputGateIndex);
+		String name = String.format("%s -> %s", sourceVertex.getName(), targetVertex.getName());
+		EdgeQosReporterConfig reporterConfig = new EdgeQosReporterConfig(dataSetID, outputGateIndex, inputGateIndex, name);
+		StreamConfig sourceConfig = new StreamConfig(sourceVertex.getConfiguration());
+		sourceConfig.addQosReporterConfigs(reporterConfig);
+		StreamConfig targetConfig = new StreamConfig(targetVertex.getConfiguration());
+		targetConfig.addQosReporterConfigs(reporterConfig);
 	}
 }

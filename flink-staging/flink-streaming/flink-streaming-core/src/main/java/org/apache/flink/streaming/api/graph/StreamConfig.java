@@ -30,6 +30,7 @@ import org.apache.flink.streaming.api.collector.selector.OutputSelectorWrapper;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecordSerializer;
 import org.apache.flink.streaming.runtime.tasks.StreamTaskException;
+import org.apache.flink.streaming.statistics.message.action.QosReporterConfig;
 import org.apache.flink.util.InstantiationUtil;
 
 public class StreamConfig implements Serializable {
@@ -59,6 +60,8 @@ public class StreamConfig implements Serializable {
 	private static final String OUT_STREAM_EDGES = "outStreamEdges";
 	private static final String IN_STREAM_EDGES = "inStreamEdges";
 	private static final String STATEHANDLE_PROVIDER = "stateHandleProvider";
+
+	private static final String QOS_REPORTER_CONFIGS = "qosReporterConfigs";
 
 	// DEFAULT VALUES
 	private static final long DEFAULT_TIMEOUT = 100;
@@ -405,6 +408,36 @@ public class StreamConfig implements Serializable {
 
 	public boolean isChainStart() {
 		return config.getBoolean(IS_CHAINED_VERTEX, false);
+	}
+
+
+	public boolean hasQosReporterConfigs() {
+		return config.containsKey(QOS_REPORTER_CONFIGS);
+	}
+
+	public void addQosReporterConfigs(QosReporterConfig reporterConfig) {
+		List<QosReporterConfig> reporterConfigs = getQosReporterConfigs();
+		reporterConfigs.add(reporterConfig);
+		config.setBytes(QOS_REPORTER_CONFIGS,
+				SerializationUtils.serialize((ArrayList) reporterConfigs));
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<QosReporterConfig> getQosReporterConfigs() {
+		try {
+			ClassLoader cl = getClass().getClassLoader();
+			ArrayList<QosReporterConfig> configs = (ArrayList<QosReporterConfig>) InstantiationUtil
+					.readObjectFromConfig(this.config, QOS_REPORTER_CONFIGS, cl);
+
+			if (configs == null) {
+				configs = new ArrayList<QosReporterConfig>();
+			}
+
+			return configs;
+
+		} catch(Exception e) {
+			throw new RuntimeException("Failure reading qos reporter configs from stream config.", e);
+		}
 	}
 
 	@Override

@@ -84,6 +84,8 @@ public class StreamGraph extends StreamingPlan {
 	protected Map<Integer, StreamLoop> vertexIDtoLoop;
 	private StateHandleProvider<?> stateHandleProvider;
 
+	// qos statistics and constraints
+	private long qosStatisticReportInterval = 7000;
 	private Map<ConstraintIdentifier, Integer> constraintStarts;
 	private Map<ConstraintIdentifier, Integer> constraintEnds;
 	private Map<ConstraintIdentifier, Long> constraintLatencies;
@@ -436,6 +438,18 @@ public class StreamGraph extends StreamingPlan {
 		StreamingJobGraphGenerator jobgraphGenerator = new StreamingJobGraphGenerator(this);
 
 		return jobgraphGenerator.createJobGraph(jobGraphName);
+	}
+
+	public boolean hasLatencyConstraints() {
+		return !this.constraintStarts.isEmpty();
+	}
+
+	public void setQosStatisticReportInterval(long qosStatisticReportInterval) {
+		this.qosStatisticReportInterval = qosStatisticReportInterval;
+	}
+
+	public long getQosStatisticReportInterval() {
+		return qosStatisticReportInterval;
 	}
 
 	@Override
