@@ -273,6 +273,25 @@ public abstract class StreamExecutionEnvironment {
 		defaultLocalParallelism = parallelism;
 	}
 
+	/**
+	 * Returns the configured qos statics report interval.
+	 *
+	 * @return Task manager statistics report interval in milliseconds.
+	 */
+	public long getQosStatisticsReportInterval() {
+		return streamGraph.getQosStatisticReportInterval();
+	}
+
+	/**
+	 * Sets qos statics report interval.
+	 *
+	 * @param reportInterval Task manager statistics report interval in milliseconds.
+	 */
+	public StreamExecutionEnvironment setQosStatisticsReportInterval(long reportInterval) {
+		streamGraph.setQosStatisticReportInterval(reportInterval);
+		return this;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	// Registry for types and serializers
 	// --------------------------------------------------------------------------------------------

@@ -37,6 +37,8 @@ import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.runtime.io.CoReaderIterator;
 import org.apache.flink.streaming.runtime.io.IndexedReaderIterator;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecordSerializer;
+import org.apache.flink.streaming.statistics.QosStatisticsForwarderFactory;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosStatisticsForwarder;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.MutableObjectIterator;
 import org.apache.flink.util.StringUtils;
@@ -68,6 +70,8 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 
 	private EventListener<TaskEvent> superstepListener;
 
+	private QosStatisticsForwarder statisticsForwarder = null; // TODO: replace with coordinator
+
 	public StreamTask() {
 		streamOperator = null;
 		numTasks = newTask();
@@ -92,6 +96,11 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 		this.configuration = new StreamConfig(getTaskConfiguration());
 		this.states = new HashMap<String, OperatorState<?>>();
 		this.context = createRuntimeContext(getEnvironment().getTaskName(), this.states);
+
+		if (this.configuration.hasQosReporterConfigs()) {
+			Environment env = getEnvironment();
+			this.statisticsForwarder = QosStatisticsForwarderFactory.getOrCreateForwarder(env);
+		}
 	}
 
 	@Override
@@ -203,6 +212,10 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 			operator.setRuntimeContext(context);
 			operator.open(getTaskConfiguration());
 		}
+
+		if (this.statisticsForwarder != null) {
+			this.statisticsForwarder.registerTask(this);
+		}
 	}
 
 	protected void closeOperator() throws Exception {
@@ -210,6 +223,10 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 
 		for (ChainableStreamOperator<?, ?> operator : outputHandler.chainedOperators) {
 			operator.close();
+		}
+
+		if (this.statisticsForwarder != null) {
+			this.statisticsForwarder.unregisterTask(this);
 		}
 	}
 
