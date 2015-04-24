@@ -41,6 +41,14 @@ import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.StatefulStreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperator;
+import org.apache.flink.streaming.runtime.io.CoReaderIterator;
+import org.apache.flink.streaming.runtime.io.IndexedReaderIterator;
+import org.apache.flink.streaming.runtime.streamrecord.StreamRecordSerializer;
+import org.apache.flink.streaming.statistics.QosStatisticsForwarderFactory;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosStatisticsForwarder;
+import org.apache.flink.util.Collector;
+import org.apache.flink.util.MutableObjectIterator;
+import org.apache.flink.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,6 +78,8 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 
 	private EventListener<TaskEvent> superstepListener;
 
+	private QosStatisticsForwarder statisticsForwarder = null; // TODO: replace with coordinator
+
 	public StreamTask() {
 		streamOperator = null;
 		superstepListener = new SuperstepEventListener();
@@ -81,6 +91,12 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 		this.userClassLoader = getUserCodeClassLoader();
 		this.configuration = new StreamConfig(getTaskConfiguration());
 		this.stateHandleProvider = getStateHandleProvider();
+
+		if (this.configuration.hasQosReporterConfigs()) {
+			Environment env = getEnvironment();
+			this.statisticsForwarder = QosStatisticsForwarderFactory.getOrCreateForwarder(env);
+		}
+	}
 
 		outputHandler = new OutputHandler<OUT>(this);
 
@@ -160,6 +176,10 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 		for (OneInputStreamOperator<?, ?> operator : outputHandler.chainedOperators) {
 			operator.open(getTaskConfiguration());
 		}
+
+		if (this.statisticsForwarder != null) {
+			this.statisticsForwarder.registerTask(this);
+		}
 	}
 
 	protected void closeOperator() throws Exception {
@@ -169,6 +189,10 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 		// elements in their close methods.
 		for (int i = outputHandler.chainedOperators.size()-1; i >= 0; i--) {
 			outputHandler.chainedOperators.get(i).close();
+		}
+
+		if (this.statisticsForwarder != null) {
+			this.statisticsForwarder.unregisterTask(this);
 		}
 	}
 
