@@ -17,39 +17,16 @@
 
 package org.apache.flink.streaming.api.constraint;
 
-import java.io.IOException;
 import java.util.LinkedList;
-
-import org.apache.flink.core.io.IOReadableWritable;
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 
 /**
  * Represent a sequence of stream graph entities (e.g. vertices and edges).
  */
-public class StreamGraphSequence extends LinkedList<StreamSequenceElement> implements IOReadableWritable {
-	@Override
-	public void write(DataOutputView out) throws IOException {
-		out.writeInt(size());
-		for (StreamSequenceElement element : this) {
-			element.write(out);
-		}
-	}
-
-	@Override
-	public void read(DataInputView in) throws IOException {
-		int count = in.readInt();
-		for (int i = 0; i < count; i++) {
-			StreamSequenceElement element = new StreamSequenceElement();
-			element.read(in);
-			add(element);
-		}
-	}
-
+public class StreamGraphSequence extends LinkedList<StreamGraphSequenceElement> {
 	@Override
 	public String toString() {
 		StringBuilder stringBuilder = new StringBuilder();
-		for (StreamSequenceElement sequenceElement : this) {
+		for (StreamGraphSequenceElement sequenceElement : this) {
 			if (sequenceElement.isVertex()) {
 				stringBuilder.append(sequenceElement.getVertexID());
 			} else {

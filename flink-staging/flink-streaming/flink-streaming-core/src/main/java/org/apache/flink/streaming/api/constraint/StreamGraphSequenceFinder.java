@@ -20,7 +20,8 @@ package org.apache.flink.streaming.api.constraint;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.flink.streaming.api.StreamGraph;
+import org.apache.flink.streaming.api.graph.StreamEdge;
+import org.apache.flink.streaming.api.graph.StreamGraph;
 
 /**
  * A helper class for finding path in a {@link StreamGraph} between two vertex ids.
@@ -48,23 +49,24 @@ public class StreamGraphSequenceFinder {
 
 		depthFirstSequenceEnumerate(beginVertexId, stack, result, endVertexId);
 
-
 		return result;
 	}
 
 	private void depthFirstSequenceEnumerate(
 			int currentVertexId, StreamGraphSequence stack, LinkedList<StreamGraphSequence> result, int endVertexId) {
 
-		stack.add(new StreamSequenceElement(currentVertexId));
+		stack.add(new StreamGraphSequenceElement(currentVertexId));
 
 		if (currentVertexId == endVertexId) {
 			result.add(((StreamGraphSequence) stack.clone()));
 		} else {
-			List<Integer> outEdges = streamGraph.getOutEdges(currentVertexId);
+			List<StreamEdge> outEdges = streamGraph.getVertex(currentVertexId).getOutEdges();
+
 			for (int i = 0; i < outEdges.size(); i++) {
-				StreamSequenceElement edge = new StreamSequenceElement(currentVertexId, outEdges.get(i), i);
+				int targetId = outEdges.get(i).getTargetID();
+				StreamGraphSequenceElement edge = new StreamGraphSequenceElement(currentVertexId, targetId, i);
 				stack.add(edge);
-				depthFirstSequenceEnumerate(outEdges.get(i), stack, result, endVertexId);
+				depthFirstSequenceEnumerate(targetId, stack, result, endVertexId);
 				stack.removeLast();
 			}
 		}

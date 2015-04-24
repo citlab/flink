@@ -40,6 +40,10 @@ public class NamedConstraintIdentifier extends ConstraintIdentifier {
 		return !(name != null ? !name.equals(that.name) : that.name != null);
 	}
 
+	public String getName() {
+		return name;
+	}
+
 	@Override
 	public int hashCode() {
 		return name != null ? name.hashCode() : 0;

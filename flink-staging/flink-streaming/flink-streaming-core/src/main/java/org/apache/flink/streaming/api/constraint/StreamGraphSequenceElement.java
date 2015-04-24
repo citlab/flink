@@ -17,27 +17,19 @@
 
 package org.apache.flink.streaming.api.constraint;
 
-import java.io.IOException;
-
-import org.apache.flink.core.io.IOReadableWritable;
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
-import org.apache.flink.streaming.api.StreamGraph;
+import org.apache.flink.streaming.api.graph.StreamGraph;
 
 /**
  * An entity of the {@link StreamGraph} being either a vertex or a edge
  */
-public class StreamSequenceElement implements IOReadableWritable {
+public class StreamGraphSequenceElement {
 	private boolean isVertex;
 
 	private int vertexID;
 
 	private int targetVertexId;
+
 	private int targetIndex;
-
-
-	public StreamSequenceElement() {
-	}
 
 	/**
 	 * Creates a vertex sequence element.
@@ -45,7 +37,7 @@ public class StreamSequenceElement implements IOReadableWritable {
 	 * @param vertexID
 	 * 		the id of the vertex;
 	 */
-	public StreamSequenceElement(int vertexID) {
+	public StreamGraphSequenceElement(int vertexID) {
 		this.vertexID = vertexID;
 		this.isVertex = true;
 	}
@@ -60,7 +52,7 @@ public class StreamSequenceElement implements IOReadableWritable {
 	 * @param targetIndex
 	 * 		the index of the target vertex in the out edge list of the source vertex.
 	 */
-	public StreamSequenceElement(int sourceVertexID, int targetVertexId, int targetIndex) {
+	public StreamGraphSequenceElement(int sourceVertexID, int targetVertexId, int targetIndex) {
 		this.vertexID = sourceVertexID;
 		this.targetVertexId = targetVertexId;
 		this.targetIndex = targetIndex;
@@ -74,31 +66,15 @@ public class StreamSequenceElement implements IOReadableWritable {
 		return vertexID;
 	}
 
+	public int getSourceVertexId() {
+		return vertexID;
+	}
+
 	public int getTargetVertexId() {
 		return targetVertexId;
 	}
 
 	public int getTargetIndex() {
 		return targetIndex;
-	}
-
-	@Override
-	public void write(DataOutputView out) throws IOException {
-		out.writeBoolean(isVertex);
-		out.writeInt(vertexID);
-		if (isVertex) {
-			out.writeInt(targetVertexId);
-			out.writeInt(targetIndex);
-		}
-	}
-
-	@Override
-	public void read(DataInputView in) throws IOException {
-		isVertex = in.readBoolean();
-		vertexID = in.readInt();
-		if (isVertex) {
-			targetVertexId = in.readInt();
-			targetIndex = in.readInt();
-		}
 	}
 }
