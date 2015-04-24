@@ -38,6 +38,7 @@ import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.blob.BlobClient;
 import org.apache.flink.runtime.blob.BlobKey;
+import org.apache.flink.runtime.statistics.AbstractCentralStatisticsHandler;
 
 /**
  * A job graph represents an entire Flink runtime job.
@@ -83,7 +84,13 @@ public class JobGraph implements Serializable {
 	private boolean checkpointingEnabled = false;
 	
 	private long checkpointingInterval = 10000;
-	
+
+	private boolean customStatisticsEnabled = false;
+
+	private long customStatisticsInterval = 7000;
+
+	private AbstractCentralStatisticsHandler customAbstractCentralStatisticsHandler;
+
 	// --------------------------------------------------------------------------------------------
 	
 	/**
@@ -285,6 +292,30 @@ public class JobGraph implements Serializable {
 
 	public long getCheckpointingInterval() {
 		return checkpointingInterval;
+	}
+
+	public void setCustomStatisticsEnabled(boolean customStatisticsEnabled) {
+		this.customStatisticsEnabled = customStatisticsEnabled;
+	}
+
+	public boolean isCustomStatisticsEnabled() {
+		return customStatisticsEnabled;
+	}
+
+	public void setCustomStatisticsInterval(long customStatisticsInterval) {
+		this.customStatisticsInterval = customStatisticsInterval;
+	}
+
+	public long getCustomStatisticsInterval() {
+		return customStatisticsInterval;
+	}
+
+	public void setCustomAbstractCentralStatisticsHandler(AbstractCentralStatisticsHandler customAbstractCentralStatisticsHandler) {
+		this.customAbstractCentralStatisticsHandler = customAbstractCentralStatisticsHandler;
+	}
+
+	public AbstractCentralStatisticsHandler getCustomAbstractCentralStatisticsHandler() {
+		return customAbstractCentralStatisticsHandler;
 	}
 
 	/**

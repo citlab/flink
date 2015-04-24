@@ -36,6 +36,8 @@ import org.apache.flink.runtime.jobmanager.StreamCheckpointCoordinator;
 import org.apache.flink.runtime.jobmanager.scheduler.Scheduler;
 import org.apache.flink.runtime.messages.ExecutionGraphMessages;
 import org.apache.flink.runtime.state.StateHandle;
+import org.apache.flink.runtime.statistics.CentralStatisticsActor;
+import org.apache.flink.runtime.statistics.AbstractCentralStatisticsHandler;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.util.ExceptionUtils;
 import org.slf4j.Logger;
@@ -186,6 +188,15 @@ public class ExecutionGraph implements Serializable {
 
 	private long checkpointingInterval = 5000;
 
+	// ------ Custom statistics -------
+	private boolean customStatisticsEnabled = false;
+
+	private long customStatisticsInterval;
+
+	private ActorRef statisticsActor;
+
+	private AbstractCentralStatisticsHandler statisticsHandler;
+
 	public ExecutionGraph(JobID jobId, String jobName, Configuration jobConfig, FiniteDuration timeout) {
 		this(jobId, jobName, jobConfig, timeout, new ArrayList<BlobKey>());
 	}
@@ -257,6 +268,26 @@ public class ExecutionGraph implements Serializable {
 
 	public long getDelayBeforeRetrying() {
 		return delayBeforeRetrying;
+	}
+
+	public boolean isCustomStatisticsEnabled() {
+		return customStatisticsEnabled;
+	}
+
+	public void setCustomStatisticsEnabled(boolean customStatisticsEnabled) {
+		this.customStatisticsEnabled = customStatisticsEnabled;
+	}
+
+	public void setCustomStatisticsInterval(long customStatisticsInterval) {
+		this.customStatisticsInterval = customStatisticsInterval;
+	}
+
+	public void setStatisticsHandler(AbstractCentralStatisticsHandler statisticsHandler) {
+		this.statisticsHandler = statisticsHandler;
+	}
+
+	public ActorRef getStatisticsActor() {
+		return statisticsActor;
 	}
 
 	public void attachJobGraph(List<AbstractJobVertex> topologiallySorted) throws JobException {
@@ -456,6 +487,11 @@ public class ExecutionGraph implements Serializable {
 			if (checkpointingEnabled) {
 				stateCheckpointerActor = StreamCheckpointCoordinator.spawn(parentContext, this,
 						Duration.create(checkpointingInterval, TimeUnit.MILLISECONDS));
+			}
+
+			if (customStatisticsEnabled) {
+				statisticsActor = CentralStatisticsActor.spawn(parentContext, this,
+						Duration.create(customStatisticsInterval, TimeUnit.MILLISECONDS), statisticsHandler);
 			}
 		}
 		else {
