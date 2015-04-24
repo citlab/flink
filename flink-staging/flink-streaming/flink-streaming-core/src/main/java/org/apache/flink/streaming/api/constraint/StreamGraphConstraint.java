@@ -17,42 +17,68 @@
 
 package org.apache.flink.streaming.api.constraint;
 
-import java.util.List;
-
-import org.apache.flink.streaming.api.StreamGraph;
+import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.streaming.api.constraint.identifier.ConstraintIdentifier;
+import org.apache.flink.streaming.api.constraint.identifier.NamedConstraintIdentifier;
 
 /**
  * Represents a constraint on a {@link StreamGraph}. It consists of the {@link StreamGraphSequence}s which are affected
  * by the constraint and a maximum latency.
  */
 public class StreamGraphConstraint {
-	private List<StreamGraphSequence> sequences;
-	private long maxLatency;
 
-	public StreamGraphConstraint(List<StreamGraphSequence> sequences, long maxLatency) {
-		this.sequences = sequences;
-		this.maxLatency = maxLatency;
+	private final ConstraintIdentifier id;
+
+	private final StreamGraphSequence sequence;
+
+	private final long latencyConstraintInMillis;
+
+	private final int seqIndex; // -1 if only one sequence (path) on graph within constraint
+
+	public StreamGraphConstraint(ConstraintIdentifier id, StreamGraphSequence sequence, long latencyConstraintInMillis, int seqIndex) {
+		this.id = id;
+		this.sequence = sequence;
+		this.latencyConstraintInMillis = latencyConstraintInMillis;
+		this.seqIndex = seqIndex;
 	}
 
-	/**
-	 * @return the sequences affected by the constraint.
-	 */
-	public List<StreamGraphSequence> getSequences() {
-		return sequences;
+	public StreamGraphConstraint(ConstraintIdentifier id, StreamGraphSequence sequence, long latencyConstraintInMillis) {
+		this(id, sequence, latencyConstraintInMillis, -1);
 	}
 
-	public void setSequences(List<StreamGraphSequence> sequences) {
-		this.sequences = sequences;
+	public StreamGraphSequence getSequence() {
+		return sequence;
 	}
 
-	/**
-	 * @return the desired maximum latency of the constraint.
-	 */
-	public long getMaxLatency() {
-		return maxLatency;
+	public long getLatencyConstraintInMillis() {
+		return latencyConstraintInMillis;
 	}
 
-	public void setMaxLatency(int maxLatency) {
-		this.maxLatency = maxLatency;
+	public String getName(String firstVertex, String lastVertex) {
+		if (this.seqIndex >= 0) {
+			return String.format("%s (%d)", getNamePrefix(firstVertex, lastVertex), this.seqIndex);
+		} else {
+			return getNamePrefix(firstVertex, lastVertex);
+		}
+	}
+
+	private String getNamePrefix(String firstVertex, String lastVertex) {
+		if (this.id instanceof NamedConstraintIdentifier) {
+			return ((NamedConstraintIdentifier) this.id).getName();
+		} else {
+			return String.format("%s -> %s", firstVertex, lastVertex);
+		}
+	}
+
+	@Override
+	public int hashCode() {
+		return this.id.hashCode() ^ this.seqIndex;
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		return (other instanceof StreamGraphConstraint)
+				&& ((StreamGraphConstraint)other).id.equals(this.id)
+				&& ((StreamGraphConstraint)other).seqIndex == this.seqIndex;
 	}
 }

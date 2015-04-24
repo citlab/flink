@@ -84,12 +84,10 @@ public class StreamGraph extends StreamingPlan {
 	protected Map<Integer, StreamLoop> vertexIDtoLoop;
 	private StateHandleProvider<?> stateHandleProvider;
 
-	private StreamGraphSequenceFinder sequenceFinder;
 	private Map<ConstraintIdentifier, Integer> constraintStarts;
 	private Map<ConstraintIdentifier, Integer> constraintEnds;
 	private Map<ConstraintIdentifier, Long> constraintLatencies;
 	private LinkedList<ConstraintIdentifier> identifiers;
-	private Map<ConstraintIdentifier, StreamGraphConstraint> constraints;
 
 	public StreamGraph(StreamExecutionEnvironment environment) {
 
@@ -109,12 +107,10 @@ public class StreamGraph extends StreamingPlan {
 		vertexIDtoLoop = new HashMap<Integer, StreamGraph.StreamLoop>();
 		sources = new HashSet<Integer>();
 
-		sequenceFinder = new StreamGraphSequenceFinder(this);
 		constraintStarts = new HashMap<ConstraintIdentifier, Integer>();
 		constraintEnds = new HashMap<ConstraintIdentifier, Integer>();
 		constraintLatencies = new HashMap<ConstraintIdentifier, Long>();
 		identifiers = new LinkedList<ConstraintIdentifier>();
-		constraints = new HashMap<ConstraintIdentifier, StreamGraphConstraint>();
 	}
 
 	protected ExecutionConfig getExecutionConfig() {
@@ -518,15 +514,6 @@ public class StreamGraph extends StreamingPlan {
 
 	}
 
-	/**
-	 * Returns the constraints defined for this graph.
-	 *
-	 * @return the constraints.
-	 */
-	public Map<ConstraintIdentifier, StreamGraphConstraint> getConstraints() {
-		return constraints;
-	}
-
 	public void beginLatencyConstraint(int beginId, ConstraintIdentifier identifier, long maxLatency) {
 		if (constraintStarts.containsKey(identifier)) {
 			throw new IllegalArgumentException(
@@ -543,6 +530,9 @@ public class StreamGraph extends StreamingPlan {
 		if (identifier == null) {
 			throw new IllegalStateException("There are no open latency constraints to finish.");
 		}
+		if (constraintStarts.get(identifier) == vertexId) {
+			throw new IllegalArgumentException("Can't define constraint on one vertex.");
+		}
 		constraintEnds.put(identifier, vertexId);
 	}
 
@@ -553,17 +543,33 @@ public class StreamGraph extends StreamingPlan {
 	}
 
 	/**
-	 * Calculates the constraints. Call {@link #getConstraints()} to get the constraints themselves.
+	 * Calculates and returns the constraints.
 	 */
-	public void calculateConstraints() {
+	public Set<StreamGraphConstraint> calculateConstraints() {
+		StreamGraphSequenceFinder sequenceFinder = new StreamGraphSequenceFinder(this);
+		HashSet<StreamGraphConstraint> constraints = new HashSet<StreamGraphConstraint>();
+
 		for (ConstraintIdentifier identifier : constraintEnds.keySet()) {
 			int beginId = constraintStarts.get(identifier);
 			int endId = constraintEnds.get(identifier);
 			long maxLatency = constraintLatencies.get(identifier);
 
 			List<StreamGraphSequence> sequences = sequenceFinder.findAllSequencesBetween(beginId, endId);
-			StreamGraphConstraint constraint = new StreamGraphConstraint(sequences, maxLatency);
-			constraints.put(identifier, constraint);
+
+			if (sequences.size() == 1) {
+				constraints.add(new StreamGraphConstraint(identifier, sequences.get(0), maxLatency));
+
+			// add sequence index to name
+			} else {
+				int index = 1;
+
+				for (StreamGraphSequence seq : sequences) {
+					StreamGraphConstraint constraint = new StreamGraphConstraint(identifier, seq, maxLatency, index++);
+					constraints.add(constraint);
+				}
+			}
 		}
+
+		return constraints;
 	}
 }
