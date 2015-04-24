@@ -37,6 +37,9 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobmanager.scheduler.Scheduler;
 import org.apache.flink.runtime.messages.ExecutionGraphMessages;
+import org.apache.flink.runtime.state.StateHandle;
+import org.apache.flink.runtime.statistics.CentralStatisticsActor;
+import org.apache.flink.runtime.statistics.AbstractCentralStatisticsHandler;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.util.SerializableObject;
 import org.apache.flink.util.ExceptionUtils;
@@ -202,6 +205,19 @@ public class ExecutionGraph implements Serializable {
 	// ------ Fields that are only relevant for archived execution graphs ------------
 	private ExecutionConfig executionConfig = null;
 
+	// ------ Custom statistics -------
+	private boolean customStatisticsEnabled = false;
+
+	private long customStatisticsInterval;
+
+	private ActorRef statisticsActor;
+
+	private AbstractCentralStatisticsHandler statisticsHandler;
+
+	public ExecutionGraph(JobID jobId, String jobName, Configuration jobConfig, FiniteDuration timeout) {
+		this(jobId, jobName, jobConfig, timeout, new ArrayList<BlobKey>());
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
 	// --------------------------------------------------------------------------------------------
@@ -281,6 +297,26 @@ public class ExecutionGraph implements Serializable {
 
 	public ScheduleMode getScheduleMode() {
 		return scheduleMode;
+	}
+
+	public boolean isCustomStatisticsEnabled() {
+		return customStatisticsEnabled;
+	}
+
+	public void setCustomStatisticsEnabled(boolean customStatisticsEnabled) {
+		this.customStatisticsEnabled = customStatisticsEnabled;
+	}
+
+	public void setCustomStatisticsInterval(long customStatisticsInterval) {
+		this.customStatisticsInterval = customStatisticsInterval;
+	}
+
+	public void setStatisticsHandler(AbstractCentralStatisticsHandler statisticsHandler) {
+		this.statisticsHandler = statisticsHandler;
+	}
+
+	public ActorRef getStatisticsActor() {
+		return statisticsActor;
 	}
 
 	public void enableSnaphotCheckpointing(long interval, long checkpointTimeout,
@@ -521,6 +557,11 @@ public class ExecutionGraph implements Serializable {
 				case BACKTRACKING:
 					// go back from vertices that need computation to the ones we need to run
 					throw new JobException("BACKTRACKING is currently not supported as schedule mode.");
+			}
+
+			if (customStatisticsEnabled) {
+				statisticsActor = CentralStatisticsActor.spawn(parentContext, this,
+						Duration.create(customStatisticsInterval, TimeUnit.MILLISECONDS), statisticsHandler);
 			}
 		}
 		else {

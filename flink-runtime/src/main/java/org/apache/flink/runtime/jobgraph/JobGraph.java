@@ -39,6 +39,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.blob.BlobClient;
 import org.apache.flink.runtime.blob.BlobKey;
 import org.apache.flink.runtime.jobgraph.tasks.JobSnapshottingSettings;
+import org.apache.flink.runtime.statistics.AbstractCentralStatisticsHandler;
 
 /**
  * The JobGraph represents a Flink dataflow program, at the low level that the JobManager accepts.
@@ -89,7 +90,16 @@ public class JobGraph implements Serializable {
 	/** The settings for asynchronous snapshotting */
 	private JobSnapshottingSettings snapshotSettings;
 	
+	private boolean checkpointingEnabled = false;
 	
+	private long checkpointingInterval = 10000;
+
+	private boolean customStatisticsEnabled = false;
+
+	private long customStatisticsInterval = 7000;
+
+	private AbstractCentralStatisticsHandler customAbstractCentralStatisticsHandler;
+
 	// --------------------------------------------------------------------------------------------
 	
 	/**
@@ -286,6 +296,30 @@ public class JobGraph implements Serializable {
 	 */
 	public JobSnapshottingSettings getSnapshotSettings() {
 		return snapshotSettings;
+	}
+
+	public void setCustomStatisticsEnabled(boolean customStatisticsEnabled) {
+		this.customStatisticsEnabled = customStatisticsEnabled;
+	}
+
+	public boolean isCustomStatisticsEnabled() {
+		return customStatisticsEnabled;
+	}
+
+	public void setCustomStatisticsInterval(long customStatisticsInterval) {
+		this.customStatisticsInterval = customStatisticsInterval;
+	}
+
+	public long getCustomStatisticsInterval() {
+		return customStatisticsInterval;
+	}
+
+	public void setCustomAbstractCentralStatisticsHandler(AbstractCentralStatisticsHandler customAbstractCentralStatisticsHandler) {
+		this.customAbstractCentralStatisticsHandler = customAbstractCentralStatisticsHandler;
+	}
+
+	public AbstractCentralStatisticsHandler getCustomAbstractCentralStatisticsHandler() {
+		return customAbstractCentralStatisticsHandler;
 	}
 
 	/**

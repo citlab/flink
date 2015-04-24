@@ -43,6 +43,7 @@ import org.apache.flink.runtime.messages.checkpoint.{AcknowledgeCheckpoint, Abst
 import org.apache.flink.runtime.process.ProcessReaper
 import org.apache.flink.runtime.security.SecurityUtils
 import org.apache.flink.runtime.security.SecurityUtils.FlinkSecuredRunner
+import org.apache.flink.runtime.statistics.StatisticReport
 import org.apache.flink.runtime.taskmanager.TaskManager
 import org.apache.flink.runtime.util.{SerializedValue, EnvironmentInformation}
 import org.apache.flink.runtime.{StreamingMode, ActorSynchronousLogging, ActorLogMessages}
@@ -435,6 +436,15 @@ class JobManager(protected val flinkConfiguration: Configuration,
         instanceManager.unregisterTaskManager(taskManager)
         context.unwatch(taskManager)
       }
+
+    case msg: StatisticReport =>
+      currentJobs.get(msg.jobID) match {
+        case Some((executionGraph,_)) =>
+          if (executionGraph.isCustomStatisticsEnabled) {
+            executionGraph.getStatisticsActor forward msg
+          }
+        case None => // ignore uknown jobs
+      }
   }
 
   /**
@@ -496,7 +506,13 @@ class JobManager(protected val flinkConfiguration: Configuration,
         executionGraph.setDelayBeforeRetrying(delayBetweenRetries)
         executionGraph.setScheduleMode(jobGraph.getScheduleMode)
         executionGraph.setQueuedSchedulingAllowed(jobGraph.getAllowQueuedScheduling)
-        
+
+        if (jobGraph.isCustomStatisticsEnabled) {
+          executionGraph.setCustomStatisticsEnabled(true)
+          executionGraph.setCustomStatisticsInterval(jobGraph.getCustomStatisticsInterval)
+          executionGraph.setStatisticsHandler(jobGraph.getCustomAbstractCentralStatisticsHandler)
+        }
+
         // initialize the vertices that have a master initialization hook
         // file output formats create directories here, input formats create splits
         if (log.isDebugEnabled) {
