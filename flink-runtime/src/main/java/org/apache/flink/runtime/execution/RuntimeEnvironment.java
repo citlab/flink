@@ -131,6 +131,7 @@ public class RuntimeEnvironment implements Environment, Runnable {
 
 				this.producedPartitions[i] = new ResultPartition(
 						owner.getJobID(),
+						desc.getResultId(),
 						partitionId,
 						desc.getPartitionType(),
 						desc.getNumberOfSubpartitions(),

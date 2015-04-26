@@ -37,8 +37,7 @@ import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.runtime.io.CoReaderIterator;
 import org.apache.flink.streaming.runtime.io.IndexedReaderIterator;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecordSerializer;
-import org.apache.flink.streaming.statistics.QosStatisticsForwarderFactory;
-import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosStatisticsForwarder;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.StreamTaskQosCoordinator;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.MutableObjectIterator;
 import org.apache.flink.util.StringUtils;
@@ -70,7 +69,7 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 
 	private EventListener<TaskEvent> superstepListener;
 
-	private QosStatisticsForwarder statisticsForwarder = null; // TODO: replace with coordinator
+	private StreamTaskQosCoordinator qosCoordinator = null;
 
 	public StreamTask() {
 		streamOperator = null;
@@ -98,8 +97,7 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 		this.context = createRuntimeContext(getEnvironment().getTaskName(), this.states);
 
 		if (this.configuration.hasQosReporterConfigs()) {
-			Environment env = getEnvironment();
-			this.statisticsForwarder = QosStatisticsForwarderFactory.getOrCreateForwarder(env);
+			this.qosCoordinator = new StreamTaskQosCoordinator(this);
 		}
 	}
 
@@ -136,6 +134,10 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 	public void setInputsOutputs() {
 		inputHandler = new InputHandler<IN>(this);
 		outputHandler = new OutputHandler<OUT>(this);
+
+		if (this.qosCoordinator != null) {
+			this.qosCoordinator.prepareQosReporting();
+		}
 	}
 
 	protected void setOperator() {
@@ -201,6 +203,10 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 			// Cleanup
 			outputHandler.flushOutputs();
 			clearBuffers();
+
+			if (this.qosCoordinator != null) {
+				this.qosCoordinator.cleanup();
+			}
 		}
 
 	}
@@ -213,8 +219,8 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 			operator.open(getTaskConfiguration());
 		}
 
-		if (this.statisticsForwarder != null) {
-			this.statisticsForwarder.registerTask(this);
+		if (this.qosCoordinator != null) {
+			this.qosCoordinator.openOperator();
 		}
 	}
 
@@ -225,8 +231,8 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 			operator.close();
 		}
 
-		if (this.statisticsForwarder != null) {
-			this.statisticsForwarder.unregisterTask(this);
+		if (this.qosCoordinator != null) {
+			this.qosCoordinator.closeOperator();
 		}
 	}
 

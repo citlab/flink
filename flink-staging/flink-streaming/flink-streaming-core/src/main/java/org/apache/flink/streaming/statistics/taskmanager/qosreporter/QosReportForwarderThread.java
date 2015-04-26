@@ -20,11 +20,11 @@ package org.apache.flink.streaming.statistics.taskmanager.qosreporter;
 
 import akka.actor.ActorRef;
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.statistics.StatisticReport;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
-import org.apache.flink.streaming.statistics.QosStatisticsForwarderFactory;
 import org.apache.flink.streaming.statistics.SpecialStatistic;
+import org.apache.flink.streaming.statistics.message.qosreport.AbstractQosReportRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,25 +46,28 @@ import java.util.Set;
  * @author Bjoern Lohrmann
  * @author Sascha Wolke
  */
-public class QosStatisticsForwarder extends Thread {
+// TODO: handle start/stop and final cleanup
+public class QosReportForwarderThread extends Thread {
 	public static final String FORWARDER_REPORT_INTERVAL_KEY = "qosStatisticsReportInterval"; // used in job config
 	public static final long DEFAULT_FORWARD_REPORT_INTERVAL = 7000;
 
-	private static final Logger LOG = LoggerFactory.getLogger(QosStatisticsForwarder.class);
+	private static final Logger LOG = LoggerFactory.getLogger(QosReportForwarderThread.class);
 
 	private final JobID jobId;
+	private final StreamTaskQosCoordinator qosCoordinator;
 	private final ActorRef jobManager;
-	private final long aggregationInterval;
+	private long aggregationInterval;
 	private boolean isRunning = false;
 	private boolean isShuttingDown = false;
 
 	private Set<Integer> runningInstances = new HashSet<Integer>();
 
-	public QosStatisticsForwarder(JobID jobId, ActorRef jobManager, Configuration jobConfiguration) {
-		this.jobId = jobId;
-		this.jobManager = jobManager;
-		this.aggregationInterval = jobConfiguration
-				.getLong(FORWARDER_REPORT_INTERVAL_KEY, DEFAULT_FORWARD_REPORT_INTERVAL);
+	public QosReportForwarderThread(StreamTaskQosCoordinator qosCoordinator, Environment env) {
+		this.jobId = env.getJobID();
+		this.jobManager = env.getJobManager();
+		this.qosCoordinator = qosCoordinator;
+		this.aggregationInterval = qosCoordinator.getAggregationInterval();
+
 		setName(String.format("QosReporterForwarderThread (JobID: %s)", jobId.toString()));
 	}
 
@@ -83,32 +86,69 @@ public class QosStatisticsForwarder extends Thread {
 		}
 	}
 
-	private void ensureIsRunning() {
+	public long getAggregationInterval() {
+		return this.aggregationInterval;
+	}
+
+	public int getSamplingProbability() {
+		return this.qosCoordinator.getSamplingProbability();
+	}
+
+	public void addToNextReport(AbstractQosReportRecord record) {
+	}
+
+	/**
+	 * (Re)start forwarding thread.
+	 */
+	private synchronized void ensureIsRunning() {
 		if (!this.isRunning) {
 			start();
 			this.isRunning = true;
 		}
 	}
 
-	private void shutdown() {
-		LOG.info("Forwarder on job {} finished.", this.jobId);
-		this.isShuttingDown = true;
-		interrupt();
-		QosStatisticsForwarderFactory.removeForwarderInstance(this.jobId);
+	/**
+	 * Stop running thread. Its safe to restart the thread via {@link #ensureIsRunning()}.
+	 */
+	private synchronized void stopThread() {
+		if (this.isRunning) {
+			interrupt();
+			this.isRunning = false;
+		}
 	}
 
-	public synchronized void registerTask(StreamTask vertex) {
-		this.runningInstances.add(vertex.getInstanceID());
+	/**
+	 * Stop running thread and cleanup.
+	 * After calling this method, the forwarder can't be used anymore!
+	 */
+	public void shutdown() {
+		LOG.info("Forwarder on job {} finished.", this.jobId);
+		this.isShuttingDown = true;
+		stopThread();
+	}
+
+	/**
+	 * This ensures that the forwarder thread is running.
+	 */
+	public void registerTask(StreamTask vertex) {
+		synchronized (this.runningInstances) {
+			this.runningInstances.add(vertex.getInstanceID());
+		}
 		LOG.info("{} running operators after opening operator {}.", runningInstances.size(), vertex.getInstanceID());
 		ensureIsRunning();
 	}
 
-	public synchronized void unregisterTask(StreamTask vertex) {
-		this.runningInstances.remove(vertex.getInstanceID());
-		LOG.info("{} running operators left after closing operator {}. Empty = ", runningInstances.size(), vertex.getInstanceID());
+	/**
+	 * This stops the forwarder thread if no task is present anymore.
+	 */
+	public void unregisterTask(StreamTask vertex) {
+		synchronized (this.runningInstances) {
+			this.runningInstances.remove(vertex.getInstanceID());
+			LOG.info("{} running tasks left after removing task {}.", runningInstances.size(), vertex.getInstanceID());
 
-		if (this.runningInstances.isEmpty()) {
-			shutdown();
+			if (this.runningInstances.isEmpty()) {
+				stopThread();
+			}
 		}
 	}
 }

@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartition;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.util.event.EventListener;
 
 import java.io.IOException;
@@ -53,6 +54,8 @@ public final class ResultPartitionWriter implements EventListener<TaskEvent> {
 	// ------------------------------------------------------------------------
 	// Attributes
 	// ------------------------------------------------------------------------
+
+	public IntermediateDataSetID getDataSetId() { return partition.getDataSetID(); }
 
 	public ResultPartitionID getPartitionId() {
 		return partition.getPartitionId();

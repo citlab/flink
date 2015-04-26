@@ -25,6 +25,8 @@ import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
+import org.apache.flink.streaming.runtime.tasks.StreamTask;
+import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
 
 import java.io.IOException;
 
@@ -224,7 +226,7 @@ public abstract class QosReporterID implements IOReadableWritable {
 
 		@Override
 		public int hashCode() {
-			return this.intermediateResultPartitionID.hashCode();
+			return this.intermediateResultPartitionID.hashCode() ^ this.consumedSubpartitionIndex;
 		}
 
 		@Override
@@ -246,7 +248,7 @@ public abstract class QosReporterID implements IOReadableWritable {
 
 		@Override
 		public String toString() {
-			return String.format("Rep:%s-%i", this.intermediateResultPartitionID.toString(), this.consumedSubpartitionIndex);
+			return String.format("Rep:%s-%d", this.intermediateResultPartitionID.toString(), this.consumedSubpartitionIndex);
 		}
 	}
 
@@ -256,10 +258,9 @@ public abstract class QosReporterID implements IOReadableWritable {
 	@Override
 	public abstract boolean equals(Object other);
 
-	public static QosReporterID.Vertex forVertex(int subTaskIndex,
-					IntermediateDataSetID inputDataSetID, IntermediateDataSetID outputDataSetID) {
-
-		return new Vertex(subTaskIndex, inputDataSetID, outputDataSetID);
+	public static QosReporterID.Vertex forVertex(StreamTask task, VertexQosReporterConfig config) {
+		return new Vertex(task.getIndexInSubtaskGroup(),
+				config.getInputDataSetID(), config.getOutputDataSetID());
 	}
 
 	public static QosReporterID.Edge forEdge(
