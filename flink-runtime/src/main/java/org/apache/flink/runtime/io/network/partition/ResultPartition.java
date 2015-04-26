@@ -29,6 +29,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.taskmanager.TaskManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,6 +82,8 @@ public class ResultPartition implements BufferPoolOwner {
 
 	private final JobID jobId;
 
+	private final IntermediateDataSetID dataSetID;
+
 	private final ResultPartitionID partitionId;
 
 	/** Type of this partition. Defines the concrete subpartition implementation to use. */
@@ -123,6 +126,7 @@ public class ResultPartition implements BufferPoolOwner {
 	public ResultPartition(
 			String owningTaskName,
 			JobID jobId,
+			IntermediateDataSetID dataSetID,
 			ResultPartitionID partitionId,
 			ResultPartitionType partitionType,
 			int numberOfSubpartitions,
@@ -133,6 +137,7 @@ public class ResultPartition implements BufferPoolOwner {
 
 		this.owningTaskName = checkNotNull(owningTaskName);
 		this.jobId = checkNotNull(jobId);
+		this.dataSetID = checkNotNull(dataSetID);
 		this.partitionId = checkNotNull(partitionId);
 		this.partitionType = checkNotNull(partitionType);
 		this.subpartitions = new ResultSubpartition[numberOfSubpartitions];
@@ -191,6 +196,10 @@ public class ResultPartition implements BufferPoolOwner {
 
 	public JobID getJobId() {
 		return jobId;
+	}
+
+	public IntermediateDataSetID getDataSetID() {
+		return dataSetID;
 	}
 
 	public ResultPartitionID getPartitionId() {

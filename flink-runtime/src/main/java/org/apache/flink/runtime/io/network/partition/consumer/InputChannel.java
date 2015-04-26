@@ -94,6 +94,10 @@ public abstract class InputChannel {
 		return channelIndex;
 	}
 
+	public ResultPartitionID getPartitionId() {
+		return partitionId;
+	}
+
 	/**
 	 * Notifies the owning {@link SingleInputGate} about an available {@link Buffer} instance.
 	 */

@@ -105,6 +105,7 @@ public class LocalInputChannelTest {
 		final IOManager ioManager = mock(IOManager.class);
 
 		final JobID jobId = new JobID();
+		final IntermediateDataSetID dataSetID = new IntermediateDataSetID();
 
 		final ResultPartitionManager partitionManager = new ResultPartitionManager();
 
@@ -118,6 +119,7 @@ public class LocalInputChannelTest {
 			final ResultPartition partition = new ResultPartition(
 					"Test Name",
 					jobId,
+					dataSetID,
 					partitionIds[i],
 					ResultPartitionType.PIPELINED,
 					parallelism,

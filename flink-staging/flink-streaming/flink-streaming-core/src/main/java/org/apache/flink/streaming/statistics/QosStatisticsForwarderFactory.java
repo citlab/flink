@@ -20,7 +20,8 @@ package org.apache.flink.streaming.statistics;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.execution.Environment;
-import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosStatisticsForwarder;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosReportForwarderThread;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.StreamTaskQosCoordinator;
 
 import java.util.HashMap;
 
@@ -28,18 +29,20 @@ import java.util.HashMap;
  * Manages forwarder instances on a job basis.
  */
 public class QosStatisticsForwarderFactory {
-	private final static HashMap<JobID, QosStatisticsForwarder> runningInstances
-			= new HashMap<JobID, QosStatisticsForwarder>();
+	private final static HashMap<JobID, QosReportForwarderThread> runningInstances
+			= new HashMap<JobID, QosReportForwarderThread>();
 
-	public static QosStatisticsForwarder getOrCreateForwarder(Environment env) {
+	public static QosReportForwarderThread getOrCreateForwarder(
+			StreamTaskQosCoordinator coordinator, Environment env) {
+
 		JobID jobID = env.getJobID();
-		QosStatisticsForwarder forwarder;
+		QosReportForwarderThread forwarder;
 
 		synchronized (runningInstances) {
 			forwarder = runningInstances.get(jobID);
 
 			if (forwarder == null) {
-				forwarder = new QosStatisticsForwarder(jobID, env.getJobManager(), env.getJobConfiguration());
+				forwarder = new QosReportForwarderThread(coordinator, env);
 				runningInstances.put(jobID, forwarder);
 			}
 		}
@@ -48,8 +51,14 @@ public class QosStatisticsForwarderFactory {
 	}
 
 	public static void removeForwarderInstance(JobID jobID) {
-		synchronized (runningInstances) {
-			runningInstances.remove(jobID);
+		QosReportForwarderThread forwarder = runningInstances.get(jobID);
+
+		if (forwarder != null) {
+			forwarder.shutdown();
+
+			synchronized (runningInstances) {
+				runningInstances.remove(jobID);
+			}
 		}
 	}
 }

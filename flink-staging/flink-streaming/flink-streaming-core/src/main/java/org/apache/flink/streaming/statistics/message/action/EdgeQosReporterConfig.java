@@ -39,9 +39,9 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 
 	private IntermediateDataSetID intermediateDataSetID;
 
-	private int outputGateEdgeIndex; // optional (based on intermediate result)
+	private int outputGateIndex; // optional (based on intermediate result)
 
-	private int inputGateEdgeIndex; // optional (based on intermediate result)
+	private int inputGateIndex; // optional (based on intermediate result)
 
 	private String name;
 
@@ -52,11 +52,11 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 	 * Initializes EdgeQosReporterConfig.
 	 */
 	public EdgeQosReporterConfig(IntermediateDataSetID intermediateDataSetID,
-			int outputGateEdgeIndex, int inputGateEdgeIndex, String name) {
+			int outputGateIndex, int inputGateIndex, String name) {
 
 		this.intermediateDataSetID = intermediateDataSetID;
-		this.outputGateEdgeIndex = outputGateEdgeIndex;
-		this.inputGateEdgeIndex = inputGateEdgeIndex;
+		this.outputGateIndex = outputGateIndex;
+		this.inputGateIndex = inputGateIndex;
 		this.name = name;
 	}
 
@@ -64,12 +64,12 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 		return intermediateDataSetID;
 	}
 
-	public int getOutputGateEdgeIndex() {
-		return this.outputGateEdgeIndex;
+	public int getOutputGateIndex() {
+		return this.outputGateIndex;
 	}
 
-	public int getInputGateEdgeIndex() {
-		return this.inputGateEdgeIndex;
+	public int getInputGateIndex() {
+		return this.inputGateIndex;
 	}
 
 	public String getName() {
@@ -79,8 +79,8 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 	@Override
 	public void write(DataOutputView out) throws IOException {
 		this.intermediateDataSetID.write(out);
-		out.writeInt(this.outputGateEdgeIndex);
-		out.writeInt(this.inputGateEdgeIndex);
+		out.writeInt(this.outputGateIndex);
+		out.writeInt(this.inputGateIndex);
 		out.writeUTF(this.name);
 	}
 
@@ -88,19 +88,19 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 	public void read(DataInputView in) throws IOException {
 		this.intermediateDataSetID = new IntermediateDataSetID();
 		this.intermediateDataSetID.read(in);
-		this.outputGateEdgeIndex = in.readInt();
-		this.inputGateEdgeIndex = in.readInt();
+		this.outputGateIndex = in.readInt();
+		this.inputGateIndex = in.readInt();
 		this.name = in.readUTF();
 	}
 
 	@Override
 	public String toString() {
 		return "EdgeQosReporterConfig("
-				+ this.outputGateEdgeIndex + " -> " + this.name + " -> " + this.inputGateEdgeIndex
+				+ this.outputGateIndex + " -> " + this.name + " -> " + this.inputGateIndex
 				+ ", dataSet: " + this.intermediateDataSetID + ")";
 	}
 
 	public QosEdge toQosEdge(IntermediateResultPartitionID partitionID, int subpartitionIndex) {
-		return new QosEdge(partitionID, subpartitionIndex, this.outputGateEdgeIndex, this.inputGateEdgeIndex);
+		return new QosEdge(partitionID, subpartitionIndex, this.outputGateIndex, this.inputGateIndex);
 	}
 }

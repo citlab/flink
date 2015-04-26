@@ -44,8 +44,7 @@ import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.runtime.io.CoReaderIterator;
 import org.apache.flink.streaming.runtime.io.IndexedReaderIterator;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecordSerializer;
-import org.apache.flink.streaming.statistics.QosStatisticsForwarderFactory;
-import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosStatisticsForwarder;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.StreamTaskQosCoordinator;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.MutableObjectIterator;
 import org.apache.flink.util.StringUtils;
@@ -78,7 +77,7 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 
 	private EventListener<TaskEvent> superstepListener;
 
-	private QosStatisticsForwarder statisticsForwarder = null; // TODO: replace with coordinator
+	private StreamTaskQosCoordinator qosCoordinator = null;
 
 	public StreamTask() {
 		streamOperator = null;
@@ -91,12 +90,6 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 		this.userClassLoader = getUserCodeClassLoader();
 		this.configuration = new StreamConfig(getTaskConfiguration());
 		this.stateHandleProvider = getStateHandleProvider();
-
-		if (this.configuration.hasQosReporterConfigs()) {
-			Environment env = getEnvironment();
-			this.statisticsForwarder = QosStatisticsForwarderFactory.getOrCreateForwarder(env);
-		}
-	}
 
 		outputHandler = new OutputHandler<OUT>(this);
 
@@ -112,6 +105,11 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 		}
 
 		hasChainedOperators = !outputHandler.getChainedOperators().isEmpty();
+
+		if (this.configuration.hasQosReporterConfigs()) {
+			this.qosCoordinator = new StreamTaskQosCoordinator(this);
+			this.qosCoordinator.prepareQosReporting();
+		}
 	}
 
 	public String getName() {
@@ -177,8 +175,8 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 			operator.open(getTaskConfiguration());
 		}
 
-		if (this.statisticsForwarder != null) {
-			this.statisticsForwarder.registerTask(this);
+		if (this.qosCoordinator != null) {
+			this.qosCoordinator.openOperator();
 		}
 	}
 
@@ -191,8 +189,8 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 			outputHandler.chainedOperators.get(i).close();
 		}
 
-		if (this.statisticsForwarder != null) {
-			this.statisticsForwarder.unregisterTask(this);
+		if (this.qosCoordinator != null) {
+			this.qosCoordinator.closeOperator();
 		}
 	}
 
