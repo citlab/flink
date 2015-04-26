@@ -83,9 +83,10 @@ public class JobGraphSequence extends LinkedList<SequenceElement>
 	}
 
 	@Override
+	@SuppressWarnings("unchecked")
 	public Object clone() {
 		JobGraphSequence clone = (JobGraphSequence) super.clone();
-		clone.verticesInSequence = (HashSet) this.verticesInSequence.clone();
+		clone.verticesInSequence = (HashSet<JobVertexID>) this.verticesInSequence.clone();
 		return clone;
 	}
 
