@@ -23,67 +23,101 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.statistics.StatisticReport;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
-import org.apache.flink.streaming.statistics.SpecialStatistic;
 import org.apache.flink.streaming.statistics.message.qosreport.AbstractQosReportRecord;
+import org.apache.flink.streaming.statistics.message.qosreport.EdgeLatency;
+import org.apache.flink.streaming.statistics.message.qosreport.EdgeStatistics;
+import org.apache.flink.streaming.statistics.message.qosreport.QosReport;
+import org.apache.flink.streaming.statistics.message.qosreport.VertexStatistics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * This class aggregates and forwards stream QoS report data (latencies,
  * throughput, etc) of the tasks of a single job running within the same
  * manager. Each task manager has one instance of this class per job. Qos report
- * data is pre-aggregated for each QoS manager and shipped in a single message
- * to the Qos manager once every {@link #aggregationInterval}. If no QoS data
- * for a Qos manager has been received, messages will be skipped. This class
+ * data is pre-aggregated and shipped in a single message once every {@link #aggregationInterval}.
+ * If no QoS data has been received, messages will be skipped. This class
  * starts its own thread as soon as there is at least on registered task and can
  * be shut down by invoking {@link #shutdown()}.
  *
  * This class is threadsafe.
  *
- * @author Bjoern Lohrmann
- * @author Sascha Wolke
+ * @author Bjoern Lohrmann, Sascha Wolke
  */
-// TODO: handle start/stop and final cleanup
 public class QosReportForwarderThread extends Thread {
-	public static final String FORWARDER_REPORT_INTERVAL_KEY = "qosStatisticsReportInterval"; // used in job config
-	public static final long DEFAULT_FORWARD_REPORT_INTERVAL = 7000;
+	public static final String FORWARDER_REPORT_INTERVAL_KEY = "qos.taskManager.aggregationInterval";
 
 	private static final Logger LOG = LoggerFactory.getLogger(QosReportForwarderThread.class);
 
-	private final JobID jobId;
-	private final StreamTaskQosCoordinator qosCoordinator;
-	private final ActorRef jobManager;
-	private long aggregationInterval;
-	private boolean isRunning = false;
-	private boolean isShuttingDown = false;
+	/** Keeps track of running instances of this class. */
+	private final static HashMap<JobID, QosReportForwarderThread> runningForwarder = new HashMap<JobID, QosReportForwarderThread>();
 
-	private Set<Integer> runningInstances = new HashSet<Integer>();
+	private final JobID jobID;
+
+	private final ActorRef jobManager;
+
+	private final long aggregationInterval;
+
+	private final int samplingProbability;
+
+	private volatile boolean isShuttingDown = false;
+
+	private final Set<Integer> registeredTasksInstances;
+
+	/** Time until next report submission. */
+	private long reportDueTime;
+
+	private QosReport currentReport;
+
+	private final LinkedBlockingQueue<AbstractQosReportRecord> pendingReportRecords;
+
+	private final ArrayList<AbstractQosReportRecord> tmpRecords;
 
 	public QosReportForwarderThread(StreamTaskQosCoordinator qosCoordinator, Environment env) {
-		this.jobId = env.getJobID();
+		this.jobID = env.getJobID();
 		this.jobManager = env.getJobManager();
-		this.qosCoordinator = qosCoordinator;
-		this.aggregationInterval = qosCoordinator.getAggregationInterval();
 
-		setName(String.format("QosReporterForwarderThread (JobID: %s)", jobId.toString()));
+		this.aggregationInterval = qosCoordinator.getAggregationInterval();
+		this.samplingProbability = qosCoordinator.getSamplingProbability();
+
+		this.registeredTasksInstances = new HashSet<Integer>();
+
+		this.currentReport = new QosReport();
+		this.reportDueTime = System.currentTimeMillis();
+
+		this.pendingReportRecords = new LinkedBlockingQueue<AbstractQosReportRecord>();
+		this.tmpRecords = new ArrayList<AbstractQosReportRecord>();
+
+		setName(String.format("QosReporterForwarderThread (JobID: %s)", jobID.toString()));
 	}
 
 	@Override
 	public void run() {
-		LOG.info("Forwarder on job {} started.", this.jobId);
+		LOG.info("Forwarder on job {} started.", this.jobID);
 
 		try {
-			while(!interrupted() && !this.isShuttingDown) {
-				LOG.info("Report...");
-				jobManager.tell(new StatisticReport(jobId, new SpecialStatistic("test")), ActorRef.noSender());
+			while (!interrupted() && !this.isShuttingDown) {
 
-				Thread.sleep(this.aggregationInterval);
+				this.processPendingReportRecords();
+				this.sleepUntilReportDue();
+				this.processPendingReportRecords();
+
+				if (!this.currentReport.isEmpty()) {
+					jobManager.tell(new StatisticReport(jobID, currentReport), ActorRef.noSender());
+				}
+
+				shiftToNextReportingInterval();
 			}
-		} catch(InterruptedException e) {
+		} catch (InterruptedException e) {
 		}
+
+		LOG.info("Forwarder on job {} stopped.", this.jobID);
 	}
 
 	public long getAggregationInterval() {
@@ -91,64 +125,123 @@ public class QosReportForwarderThread extends Thread {
 	}
 
 	public int getSamplingProbability() {
-		return this.qosCoordinator.getSamplingProbability();
+		return this.samplingProbability;
+	}
+
+	/**
+	 * Start forwarding thread.
+	 */
+	private synchronized void ensureIsRunning() {
+		if (!this.isAlive()) {
+			start();
+		}
+	}
+
+	/**
+	 * Shutdown forwarder. After calling this method, the forwarder can't be used anymore!
+	 */
+	public void shutdown() {
+		LOG.info("Forwarder on job {} finished.", this.jobID);
+		this.isShuttingDown = true;
+		interrupt();
 	}
 
 	public void addToNextReport(AbstractQosReportRecord record) {
+		if (this.isShuttingDown) {
+			return;
+		}
+		this.pendingReportRecords.add(record);
 	}
 
-	/**
-	 * (Re)start forwarding thread.
-	 */
-	private synchronized void ensureIsRunning() {
-		if (!this.isRunning) {
-			start();
-			this.isRunning = true;
+	private void shiftToNextReportingInterval() {
+		long now = System.currentTimeMillis();
+		while (this.reportDueTime <= now) {
+			this.reportDueTime = this.reportDueTime + this.aggregationInterval;
+		}
+		this.currentReport = new QosReport();
+	}
+
+	private void sleepUntilReportDue() throws InterruptedException {
+		long sleepTime = Math.max(0, this.reportDueTime - System.currentTimeMillis());
+		if (sleepTime > 0) {
+			sleep(sleepTime);
 		}
 	}
 
-	/**
-	 * Stop running thread. Its safe to restart the thread via {@link #ensureIsRunning()}.
-	 */
-	private synchronized void stopThread() {
-		if (this.isRunning) {
-			interrupt();
-			this.isRunning = false;
-		}
-	}
+	private void processPendingReportRecords() {
+		this.pendingReportRecords.drainTo(this.tmpRecords);
 
-	/**
-	 * Stop running thread and cleanup.
-	 * After calling this method, the forwarder can't be used anymore!
-	 */
-	public void shutdown() {
-		LOG.info("Forwarder on job {} finished.", this.jobId);
-		this.isShuttingDown = true;
-		stopThread();
+		for (AbstractQosReportRecord record : this.tmpRecords) {
+			if (record instanceof EdgeLatency) {
+				this.currentReport.addEdgeLatency((EdgeLatency) record);
+			} else if (record instanceof EdgeStatistics) {
+				this.currentReport.addEdgeStatistics((EdgeStatistics) record);
+			} else if (record instanceof VertexStatistics) {
+				this.currentReport.addVertexStatistics((VertexStatistics) record);
+			} else {
+				LOG.error("Cannot process report record: {}.", record.getClass().getSimpleName());
+			}
+		}
+
+		this.tmpRecords.clear();
 	}
 
 	/**
 	 * This ensures that the forwarder thread is running.
 	 */
-	public void registerTask(StreamTask vertex) {
-		synchronized (this.runningInstances) {
-			this.runningInstances.add(vertex.getInstanceID());
+	private void registerTask(StreamTask vertex) {
+		if (this.isShuttingDown) {
+			throw new RuntimeException("Can't register task after shutdown has called.");
 		}
-		LOG.info("{} running operators after opening operator {}.", runningInstances.size(), vertex.getInstanceID());
+
+		this.registeredTasksInstances.add(vertex.getInstanceID());
+
+		LOG.info("{} running operators after opening operator {}.",
+				registeredTasksInstances.size(), vertex.getInstanceID());
+
 		ensureIsRunning();
 	}
 
 	/**
-	 * This stops the forwarder thread if no task is present anymore.
+	 * This stops and clears the forwarder thread if no task is present anymore.
 	 */
 	public void unregisterTask(StreamTask vertex) {
-		synchronized (this.runningInstances) {
-			this.runningInstances.remove(vertex.getInstanceID());
-			LOG.info("{} running tasks left after removing task {}.", runningInstances.size(), vertex.getInstanceID());
+		synchronized (runningForwarder) {
+			this.registeredTasksInstances.remove(vertex.getInstanceID());
 
-			if (this.runningInstances.isEmpty()) {
-				stopThread();
+			if (this.registeredTasksInstances.isEmpty()) {
+				runningForwarder.remove(this.jobID);
+				shutdown();
 			}
 		}
+
+		LOG.info("{} running tasks left after removing task {}.",
+				registeredTasksInstances.size(), vertex.getInstanceID());
+	}
+
+	/**
+	 * Creates a new job forwarder instance if no instance handles given task and register
+	 * the task als active instance.
+	 *
+	 * After finishing the task, call {@link #unregisterTask(StreamTask)}.
+	 */
+	public static QosReportForwarderThread getOrCreateForwarderAndRegisterTask(
+			StreamTaskQosCoordinator coordinator, StreamTask task, Environment env) {
+
+		QosReportForwarderThread forwarder;
+
+		synchronized (runningForwarder) {
+			JobID jobID = env.getJobID();
+			forwarder = runningForwarder.get(jobID);
+
+			if (forwarder == null) {
+				forwarder = new QosReportForwarderThread(coordinator, env);
+				runningForwarder.put(jobID, forwarder);
+			}
+
+			forwarder.registerTask(task);
+		}
+
+		return forwarder;
 	}
 }

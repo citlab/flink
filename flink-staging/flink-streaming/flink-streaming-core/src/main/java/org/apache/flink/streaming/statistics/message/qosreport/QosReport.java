@@ -21,16 +21,12 @@ package org.apache.flink.streaming.statistics.message.qosreport;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.statistics.message.AbstractSerializableQosMessage;
-import org.apache.flink.streaming.statistics.message.action.EdgeQosReporterConfig;
-import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map.Entry;
 
 /**
@@ -48,20 +44,6 @@ public class QosReport extends AbstractSerializableQosMessage {
 	private HashMap<QosReporterID.Edge, EdgeStatistics> edgeStatistics;
 
 	private HashMap<QosReporterID.Vertex, VertexStatistics> vertexStatistics;
-
-	private LinkedList<VertexQosReporterConfig> vertexReporterAnnouncements;
-
-	private LinkedList<EdgeQosReporterConfig> edgeReporterAnnouncements;
-
-//	/**
-//	 * Creates and initializes QosReport object to be used for
-//	 * sending/serialization.
-//	 *
-//	 * @param jobID
-//	 */
-//	public QosReport(JobID jobID) {
-//		super(jobID);
-//	}
 
 	/**
 	 * Creates and initializes QosReport object to be used for
@@ -101,35 +83,6 @@ public class QosReport extends AbstractSerializableQosMessage {
 		} else {
 			existing.add(edgeLatency);
 		}
-	}
-
-	public void announceVertexQosReporter(VertexQosReporterConfig vertexReporter) {
-		if (this.vertexReporterAnnouncements == null) {
-			this.vertexReporterAnnouncements = new LinkedList<VertexQosReporterConfig>();
-		}
-		this.vertexReporterAnnouncements.add(vertexReporter);
-	}
-
-	public List<VertexQosReporterConfig> getVertexQosReporterAnnouncements() {
-		if (this.vertexReporterAnnouncements == null) {
-			return Collections.emptyList();
-		}
-		return this.vertexReporterAnnouncements;
-	}
-
-	public void addEdgeQosReporterAnnouncement(
-			EdgeQosReporterConfig edgeReporter) {
-		if (this.edgeReporterAnnouncements == null) {
-			this.edgeReporterAnnouncements = new LinkedList<EdgeQosReporterConfig>();
-		}
-		this.edgeReporterAnnouncements.add(edgeReporter);
-	}
-
-	public List<EdgeQosReporterConfig> getEdgeQosReporterAnnouncements() {
-		if (this.edgeReporterAnnouncements == null) {
-			return Collections.emptyList();
-		}
-		return this.edgeReporterAnnouncements;
 	}
 
 	public Collection<EdgeLatency> getEdgeLatencies() {
@@ -177,40 +130,11 @@ public class QosReport extends AbstractSerializableQosMessage {
 		return this.vertexStatistics.values();
 	}
 
-	/**
-	 * {@inheritDoc}
-	 */
 	@Override
 	public void write(final DataOutputView out) throws IOException {
 		this.writeEdgeLatencies(out);
 		this.writeEdgeStatistics(out);
 		this.writeVertexLatencies(out);
-		this.writeVertexReporterAnnouncements(out);
-		this.writeEdgeReporterAnnouncements(out);
-	}
-
-	private void writeEdgeReporterAnnouncements(DataOutputView out)
-			throws IOException {
-		if (this.edgeReporterAnnouncements != null) {
-			out.writeInt(this.edgeReporterAnnouncements.size());
-			for (EdgeQosReporterConfig reporterConfig : this.edgeReporterAnnouncements) {
-				reporterConfig.write(out);
-			}
-		} else {
-			out.writeInt(0);
-		}
-	}
-
-	private void writeVertexReporterAnnouncements(DataOutputView out)
-			throws IOException {
-		if (this.vertexReporterAnnouncements != null) {
-			out.writeInt(this.vertexReporterAnnouncements.size());
-			for (VertexQosReporterConfig reporterConfig : this.vertexReporterAnnouncements) {
-				reporterConfig.write(out);
-			}
-		} else {
-			out.writeInt(0);
-		}
 	}
 
 	private void writeEdgeLatencies(DataOutputView out) throws IOException {
@@ -253,37 +177,11 @@ public class QosReport extends AbstractSerializableQosMessage {
 		}
 	}
 
-	/**
-	 * {@inheritDoc}
-	 */
 	@Override
 	public void read(final DataInputView in) throws IOException {
 		this.readEdgeLatencies(in);
 		this.readOutputEdgeStatistics(in);
 		this.readVertexStatistics(in);
-		this.readVertexReporterAnnouncements(in);
-		this.readEdgeReporterAnnouncements(in);
-	}
-
-	private void readVertexReporterAnnouncements(DataInputView in)
-			throws IOException {
-		this.vertexReporterAnnouncements = new LinkedList<VertexQosReporterConfig>();
-		int toRead = in.readInt();
-		for (int i = 0; i < toRead; i++) {
-			VertexQosReporterConfig reporterConfig = new VertexQosReporterConfig();
-			reporterConfig.read(in);
-			this.vertexReporterAnnouncements.add(reporterConfig);
-		}
-	}
-
-	private void readEdgeReporterAnnouncements(DataInputView in) throws IOException {
-		this.edgeReporterAnnouncements = new LinkedList<EdgeQosReporterConfig>();
-		int toRead = in.readInt();
-		for (int i = 0; i < toRead; i++) {
-			EdgeQosReporterConfig reporterConfig = new EdgeQosReporterConfig();
-			reporterConfig.read(in);
-			this.edgeReporterAnnouncements.add(reporterConfig);
-		}
 	}
 
 	private void readEdgeLatencies(DataInputView in) throws IOException {
@@ -322,14 +220,8 @@ public class QosReport extends AbstractSerializableQosMessage {
 	}
 
 	public boolean isEmpty() {
-		return this.edgeLatencies == null && this.edgeStatistics == null
-				&& this.vertexStatistics == null
-				&& this.vertexReporterAnnouncements == null
-				&& this.edgeReporterAnnouncements == null;
-	}
-
-	public boolean hasAnnouncements() {
-		return this.vertexReporterAnnouncements != null
-				|| this.edgeReporterAnnouncements != null;
+		return this.edgeLatencies == null
+				&& this.edgeStatistics == null
+				&& this.vertexStatistics == null;
 	}
 }

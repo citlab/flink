@@ -132,11 +132,7 @@ public final class EdgeStatistics extends AbstractQosReportRecord {
 		return this.recordsPerSecond;
 	}
 
-	/**
-	 * Returns the reporterID.
-	 *
-	 * @return the reporterID
-	 */
+	@Override
 	public QosReporterID.Edge getReporterID() {
 		return this.reporterID;
 	}

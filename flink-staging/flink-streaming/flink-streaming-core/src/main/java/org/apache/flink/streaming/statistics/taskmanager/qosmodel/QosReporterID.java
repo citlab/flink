@@ -186,9 +186,9 @@ public abstract class QosReporterID implements IOReadableWritable, Serializable 
 
 		@Override
 		public String toString() {
-			return String.format("Rep:%s-%s-%s",
+			return String.format("Rep:%s-%d-%s",
 					(inputDataSetID != null) ? inputDataSetID.toString() : "none",
-					this.outputDataSetID.toString(),
+					this.subTaskIndex,
 					(outputDataSetID != null) ? outputDataSetID.toString() : "none");
 		}
 	}

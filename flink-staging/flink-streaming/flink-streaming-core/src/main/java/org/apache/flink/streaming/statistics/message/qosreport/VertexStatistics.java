@@ -82,6 +82,7 @@ public final class VertexStatistics extends AbstractQosReportRecord {
 	public VertexStatistics() {
 	}
 
+	@Override
 	public QosReporterID.Vertex getReporterID() {
 		return this.reporterID;
 	}

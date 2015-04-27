@@ -174,10 +174,6 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 		for (OneInputStreamOperator<?, ?> operator : outputHandler.chainedOperators) {
 			operator.open(getTaskConfiguration());
 		}
-
-		if (this.qosCoordinator != null) {
-			this.qosCoordinator.openOperator();
-		}
 	}
 
 	protected void closeOperator() throws Exception {
@@ -187,10 +183,6 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 		// elements in their close methods.
 		for (int i = outputHandler.chainedOperators.size()-1; i >= 0; i--) {
 			outputHandler.chainedOperators.get(i).close();
-		}
-
-		if (this.qosCoordinator != null) {
-			this.qosCoordinator.closeOperator();
 		}
 	}
 
