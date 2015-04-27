@@ -206,6 +206,7 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 
 			if (this.qosCoordinator != null) {
 				this.qosCoordinator.cleanup();
+				this.qosCoordinator = null;
 			}
 		}
 
@@ -218,10 +219,6 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 			operator.setRuntimeContext(context);
 			operator.open(getTaskConfiguration());
 		}
-
-		if (this.qosCoordinator != null) {
-			this.qosCoordinator.openOperator();
-		}
 	}
 
 	protected void closeOperator() throws Exception {
@@ -229,10 +226,6 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 
 		for (ChainableStreamOperator<?, ?> operator : outputHandler.chainedOperators) {
 			operator.close();
-		}
-
-		if (this.qosCoordinator != null) {
-			this.qosCoordinator.closeOperator();
 		}
 	}
 

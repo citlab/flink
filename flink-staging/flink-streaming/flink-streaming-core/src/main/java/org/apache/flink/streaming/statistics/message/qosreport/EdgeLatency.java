@@ -87,6 +87,7 @@ public final class EdgeLatency extends AbstractQosReportRecord {
 	 *
 	 * @return the reporterID
 	 */
+	@Override
 	public QosReporterID.Edge getReporterID() {
 		return this.reporterID;
 	}

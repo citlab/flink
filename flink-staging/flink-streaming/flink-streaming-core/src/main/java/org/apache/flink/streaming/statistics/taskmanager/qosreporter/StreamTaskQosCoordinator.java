@@ -26,7 +26,6 @@ import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
-import org.apache.flink.streaming.statistics.QosStatisticsForwarderFactory;
 import org.apache.flink.streaming.statistics.message.action.EdgeQosReporterConfig;
 import org.apache.flink.streaming.statistics.message.action.QosReporterConfig;
 import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
@@ -86,7 +85,8 @@ public class StreamTaskQosCoordinator {
 	public StreamTaskQosCoordinator(StreamTask task) {
 		this.task = task;
 		this.taskEnvironment = task.getEnvironment();
-		this.forwarderThread = QosStatisticsForwarderFactory.getOrCreateForwarder(this, taskEnvironment);
+		this.forwarderThread = QosReportForwarderThread.getOrCreateForwarderAndRegisterTask(
+				this, task, taskEnvironment);
 		this.inputGateReporters = new ArrayList<InputGateReporterManager>();
 		this.outputGateReporters = new ArrayList<OutputGateReporterManager>();
 	}
@@ -101,16 +101,8 @@ public class StreamTaskQosCoordinator {
 		}
 	}
 
-	public void openOperator() {
-		this.forwarderThread.registerTask(this.task);
-	}
-
-	public void closeOperator() {
-		this.forwarderThread.unregisterTask(this.task);
-	}
-
 	public void cleanup() {
-		QosStatisticsForwarderFactory.removeForwarderInstance(this.taskEnvironment.getJobID());
+		this.forwarderThread.unregisterTask(this.task);
 	}
 
 	public long getAggregationInterval() {
