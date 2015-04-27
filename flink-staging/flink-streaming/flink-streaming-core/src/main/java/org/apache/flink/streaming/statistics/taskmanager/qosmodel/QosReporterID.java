@@ -29,6 +29,8 @@ import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
 
 /**
  * Identifies a Qos Reporter. The ID is deterministically constructed from the
@@ -36,7 +38,7 @@ import java.io.IOException;
  *
  * @author Bjoern Lohrmann, Sascha Wolke
  */
-public abstract class QosReporterID implements IOReadableWritable {
+public abstract class QosReporterID implements IOReadableWritable, Serializable {
 
 	public static class Vertex extends QosReporterID {
 
@@ -106,6 +108,11 @@ public abstract class QosReporterID implements IOReadableWritable {
 			if (this.outputDataSetID != null) {
 				this.precomputedHash ^= this.outputDataSetID.hashCode();
 			}
+		}
+
+		private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+			in.defaultReadObject();
+			precomputeHash();
 		}
 
 		@Override
