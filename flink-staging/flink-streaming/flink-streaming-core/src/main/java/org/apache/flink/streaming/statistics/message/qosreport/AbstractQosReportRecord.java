@@ -20,11 +20,12 @@ package org.apache.flink.streaming.statistics.message.qosreport;
 
 import org.apache.flink.core.io.IOReadableWritable;
 
+import java.io.Serializable;
+
 /**
  * Abstract supertype for all Qos reporting data.
  *
  * @author Bjoern Lohrmann
  */
-public abstract class AbstractQosReportRecord implements IOReadableWritable {
-
+public abstract class AbstractQosReportRecord implements IOReadableWritable, Serializable {
 }
