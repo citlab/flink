@@ -132,12 +132,12 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 	}
 
 	public void setInputsOutputs() {
-		inputHandler = new InputHandler<IN>(this);
-		outputHandler = new OutputHandler<OUT>(this);
-
 		if (this.qosCoordinator != null) {
 			this.qosCoordinator.prepareQosReporting();
 		}
+
+		inputHandler = new InputHandler<IN>(this);
+		outputHandler = new OutputHandler<OUT>(this);
 	}
 
 	protected void setOperator() {
@@ -292,6 +292,10 @@ public class StreamTask<IN, OUT> extends AbstractInvokable implements StreamTask
 
 	public EventListener<TaskEvent> getSuperstepListener() {
 		return this.superstepListener;
+	}
+
+	public StreamTaskQosCoordinator getQosCoordinator() {
+		return qosCoordinator;
 	}
 
 	/**

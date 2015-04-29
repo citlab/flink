@@ -40,10 +40,9 @@ import org.apache.flink.optimizer.plan.StreamingPlan;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.streaming.api.collector.selector.OutputSelector;
-import org.apache.flink.streaming.api.constraint.StreamGraphConstraint;
-import org.apache.flink.streaming.api.constraint.StreamGraphSequence;
-import org.apache.flink.streaming.api.constraint.StreamGraphSequenceFinder;
-import org.apache.flink.streaming.api.constraint.identifier.ConstraintIdentifier;
+import org.apache.flink.streaming.api.constraint.ConstraintBoundary;
+import org.apache.flink.streaming.api.constraint.ConstraintGroupConfiguration;
+import org.apache.flink.streaming.api.constraint.identifier.ConstraintGroupIdentifier;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.co.CoStreamOperator;
@@ -83,10 +82,8 @@ public class StreamGraph extends StreamingPlan {
 
 	// qos statistics and constraints
 	private long qosStatisticReportInterval = 7000;
-	private Map<ConstraintIdentifier, Integer> constraintStarts;
-	private Map<ConstraintIdentifier, Integer> constraintEnds;
-	private Map<ConstraintIdentifier, Long> constraintLatencies;
-	private LinkedList<ConstraintIdentifier> identifiers;
+	private Map<ConstraintGroupIdentifier, ConstraintGroupConfiguration> constraintConfigurations;
+	private LinkedList<ConstraintGroupIdentifier> identifiers;
 
 	public StreamGraph(StreamExecutionEnvironment environment) {
 
@@ -98,10 +95,8 @@ public class StreamGraph extends StreamingPlan {
 		vertexIDtoLoop = new HashMap<Integer, StreamGraph.StreamLoop>();
 		sources = new HashSet<Integer>();
 
-		constraintStarts = new HashMap<ConstraintIdentifier, Integer>();
-		constraintEnds = new HashMap<ConstraintIdentifier, Integer>();
-		constraintLatencies = new HashMap<ConstraintIdentifier, Long>();
-		identifiers = new LinkedList<ConstraintIdentifier>();
+		constraintConfigurations = new HashMap<ConstraintGroupIdentifier, ConstraintGroupConfiguration>();
+		identifiers = new LinkedList<ConstraintGroupIdentifier>();
 	}
 
 	protected ExecutionConfig getExecutionConfig() {
@@ -249,6 +244,23 @@ public class StreamGraph extends StreamingPlan {
 
 	public void addEdge(Integer upStreamVertexID, Integer downStreamVertexID,
 			StreamPartitioner<?> partitionerObject, int typeNumber, List<String> outputNames) {
+
+		List<ConstraintBoundary> constraintBoundaries = new ArrayList<ConstraintBoundary>();
+
+		for (ConstraintGroupConfiguration constraintGroupConfiguration : constraintConfigurations.values()) {
+			constraintBoundaries.add(constraintGroupConfiguration.getStart());
+			constraintBoundaries.add(constraintGroupConfiguration.getEnd());
+		}
+
+		for (ConstraintBoundary constraintBoundary : constraintBoundaries) {
+			if (constraintBoundary.getSourceId() != null && constraintBoundary.getSourceId().equals(upStreamVertexID)) {
+				if (constraintBoundary.getTargetId() == null) {
+					constraintBoundary.setTargetId(downStreamVertexID);
+				} else {
+					throw new IllegalStateException("Only one edge allowed when defining constraints between two DataStreams.");
+				}
+			}
+		}
 
 		StreamEdge edge = new StreamEdge(getVertex(upStreamVertexID),
 				getVertex(downStreamVertexID), typeNumber, outputNames, partitionerObject);
@@ -401,7 +413,7 @@ public class StreamGraph extends StreamingPlan {
 	}
 
 	public boolean hasLatencyConstraints() {
-		return !this.constraintStarts.isEmpty();
+		return !this.constraintConfigurations.isEmpty();
 	}
 
 	public void setQosStatisticReportInterval(long qosStatisticReportInterval) {
@@ -484,62 +496,32 @@ public class StreamGraph extends StreamingPlan {
 
 	}
 
-	public void beginLatencyConstraint(int beginId, ConstraintIdentifier identifier, long maxLatency) {
-		if (constraintStarts.containsKey(identifier)) {
+	public void beginLatencyConstraint(ConstraintGroupConfiguration configuration) {
+		if (identifiers.contains(configuration.getIdentifier())) {
 			throw new IllegalArgumentException(
-					String.format("The identifier \"%s\" has already been used for a constraint.", identifier.toString()));
+					String.format("The identifier \"%s\" has already been used for a constraint.",
+							configuration.getIdentifier().toString()));
 		}
 
-		constraintStarts.put(identifier, beginId);
-		constraintLatencies.put(identifier, maxLatency);
-		identifiers.add(identifier);
+		constraintConfigurations.put(configuration.getIdentifier(), configuration);
+		identifiers.add(configuration.getIdentifier());
 	}
 
+
 	public void finishLatencyConstraint(int vertexId) {
-		ConstraintIdentifier identifier = identifiers.removeLast();
+		ConstraintGroupIdentifier identifier = identifiers.removeLast();
 		if (identifier == null) {
 			throw new IllegalStateException("There are no open latency constraints to finish.");
 		}
-		if (constraintStarts.get(identifier) == vertexId) {
-			throw new IllegalArgumentException("Can't define constraint on one vertex.");
-		}
-		constraintEnds.put(identifier, vertexId);
+
+		ConstraintGroupConfiguration constraintGroupConfiguration = constraintConfigurations.get(identifier);
+		ConstraintBoundary constraintBoundary = new ConstraintBoundary();
+		constraintBoundary.setSourceId(vertexId);
+		constraintGroupConfiguration.setEnd(constraintBoundary);
 	}
 
-	public void constrainLatencyBetween(int beginId, int endId, long maxLatency, ConstraintIdentifier identifier) {
-		constraintStarts.put(identifier, beginId);
-		constraintEnds.put(identifier, endId);
-		constraintLatencies.put(identifier, maxLatency);
-	}
 
-	/**
-	 * Calculates and returns the constraints.
-	 */
-	public Set<StreamGraphConstraint> calculateConstraints() {
-		StreamGraphSequenceFinder sequenceFinder = new StreamGraphSequenceFinder(this);
-		HashSet<StreamGraphConstraint> constraints = new HashSet<StreamGraphConstraint>();
-
-		for (ConstraintIdentifier identifier : constraintEnds.keySet()) {
-			int beginId = constraintStarts.get(identifier);
-			int endId = constraintEnds.get(identifier);
-			long maxLatency = constraintLatencies.get(identifier);
-
-			List<StreamGraphSequence> sequences = sequenceFinder.findAllSequencesBetween(beginId, endId);
-
-			if (sequences.size() == 1) {
-				constraints.add(new StreamGraphConstraint(identifier, sequences.get(0), maxLatency));
-
-			// add sequence index to name
-			} else {
-				int index = 1;
-
-				for (StreamGraphSequence seq : sequences) {
-					StreamGraphConstraint constraint = new StreamGraphConstraint(identifier, seq, maxLatency, index++);
-					constraints.add(constraint);
-				}
-			}
-		}
-
-		return constraints;
+	public Map<ConstraintGroupIdentifier, ConstraintGroupConfiguration> getConstraintConfigurations() {
+		return constraintConfigurations;
 	}
 }

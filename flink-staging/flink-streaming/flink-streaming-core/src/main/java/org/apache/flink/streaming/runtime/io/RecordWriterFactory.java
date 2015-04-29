@@ -19,7 +19,6 @@ package org.apache.flink.streaming.runtime.io;
 
 import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.runtime.io.network.api.writer.ChannelSelector;
-import org.apache.flink.runtime.io.network.api.writer.RecordWriter;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,9 +26,9 @@ import org.slf4j.LoggerFactory;
 public class RecordWriterFactory {
 	private static final Logger LOG = LoggerFactory.getLogger(RecordWriterFactory.class);
 
-	public static <OUT extends IOReadableWritable> RecordWriter<OUT> createRecordWriter(ResultPartitionWriter bufferWriter, ChannelSelector<OUT> channelSelector, long bufferTimeout) {
+	public static <OUT extends IOReadableWritable> QosReportingRecordWriter<OUT> createRecordWriter(ResultPartitionWriter bufferWriter, ChannelSelector<OUT> channelSelector, long bufferTimeout) {
 
-		RecordWriter<OUT> output;
+		QosReportingRecordWriter<OUT> output;
 
 		if (bufferTimeout >= 0) {
 			output = new StreamRecordWriter<OUT>(bufferWriter, channelSelector, bufferTimeout);
@@ -38,7 +37,7 @@ public class RecordWriterFactory {
 				LOG.trace("StreamRecordWriter initiated with {} bufferTimeout.", bufferTimeout);
 			}
 		} else {
-			output = new RecordWriter<OUT>(bufferWriter, channelSelector);
+			output = new QosReportingRecordWriter<OUT>(bufferWriter, channelSelector);
 
 			if (LOG.isTraceEnabled()) {
 				LOG.trace("RecordWriter initiated.");

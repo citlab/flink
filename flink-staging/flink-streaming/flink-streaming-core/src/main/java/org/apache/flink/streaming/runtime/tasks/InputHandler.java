@@ -59,6 +59,8 @@ public class InputHandler<IN> {
 			InputGate inputGate = InputGateFactory.createInputGate(streamVertex.getEnvironment().getAllInputGates());
 			inputs = new IndexedMutableReader<DeserializationDelegate<StreamRecord<IN>>>(inputGate);
 
+			streamVertex.getQosCoordinator().setupInputQosListener(inputs, 0);
+
 			inputs.registerTaskEventListener(streamVertex.getSuperstepListener(),
 					StreamingSuperstep.class);
 
