@@ -34,9 +34,11 @@ import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.graph.StreamEdge;
 import org.apache.flink.streaming.api.operators.ChainableStreamOperator;
 import org.apache.flink.streaming.runtime.io.RecordWriterFactory;
+import org.apache.flink.streaming.runtime.io.StreamRecordWriter;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecordSerializer;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.StreamTaskQosCoordinator;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -187,6 +189,11 @@ public class OutputHandler<OUT> {
 
 		RecordWriter<SerializationDelegate<StreamRecord<T>>> output =
 				RecordWriterFactory.createRecordWriter(bufferWriter, outputPartitioner, upStreamConfig.getBufferTimeout());
+
+		StreamTaskQosCoordinator qosCoordinator = vertex.getQosCoordinator();
+		if (qosCoordinator != null && output instanceof StreamRecordWriter) {
+			qosCoordinator.setupOutputQosListener((StreamRecordWriter) output, outputIndex);
+		}
 
 		StreamOutput<T> streamOutput = new StreamOutput<T>(output, vertex.instanceID,
 				outSerializationDelegate);
