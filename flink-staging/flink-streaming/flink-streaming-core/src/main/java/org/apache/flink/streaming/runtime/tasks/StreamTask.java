@@ -110,6 +110,9 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 			this.qosCoordinator = new StreamTaskQosCoordinator(this);
 			this.qosCoordinator.prepareQosReporting();
 		}
+
+		inputHandler = new InputHandler<IN>(this);
+		outputHandler = new OutputHandler<OUT>(this);
 	}
 
 	public String getName() {
@@ -321,7 +324,10 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 		}
 	}
 	
-	
+	public StreamTaskQosCoordinator getQosCoordinator() {
+		return qosCoordinator;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Utilities
 	// ------------------------------------------------------------------------

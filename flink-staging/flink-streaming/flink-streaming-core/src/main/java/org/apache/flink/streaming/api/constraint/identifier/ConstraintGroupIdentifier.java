@@ -19,5 +19,5 @@
 
 package org.apache.flink.streaming.api.constraint.identifier;
 
-public class ConstraintIdentifier {
+public class ConstraintGroupIdentifier {
 }

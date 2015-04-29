@@ -52,6 +52,10 @@ public final class ResultPartitionWriter implements EventListener<TaskEvent> {
 	// Attributes
 	// ------------------------------------------------------------------------
 
+	public ResultPartition getPartition() {
+		return partition;
+	}
+
 	public IntermediateDataSetID getDataSetId() { return partition.getDataSetID(); }
 
 	public ResultPartitionID getPartitionId() {
