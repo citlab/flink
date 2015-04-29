@@ -31,6 +31,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.streaming.runtime.tasks.StreamingSuperstep;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.InputGateQosReportingListener;
+import org.apache.flink.streaming.statistics.types.AbstractTaggableRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,9 +55,13 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 
 	private RecordDeserializer<T> currentRecordDeserializer;
 
+	private int currentRecordDeserializerIndex;
+
 	private boolean isFinished;
 
 	private final BarrierBuffer barrierBuffer;
+
+	private InputGateQosReportingListener qosCallback;
 
 	@SuppressWarnings("unchecked")
 	protected StreamingAbstractRecordReader(InputGate inputGate) {
@@ -75,6 +81,10 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 			return false;
 		}
 
+		if (qosCallback != null) {
+			qosCallback.tryingToReadRecord();
+		}
+
 		while (true) {
 			if (currentRecordDeserializer != null) {
 				DeserializationResult result = currentRecordDeserializer.getNextRecord(target);
@@ -85,14 +95,24 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 				}
 
 				if (result.isFullRecord()) {
+					// TODO target AbstractTaggableRecord
+					if (qosCallback != null && target instanceof AbstractTaggableRecord) {
+						qosCallback.recordReceived(currentRecordDeserializerIndex, ((AbstractTaggableRecord) target));
+					}
 					return true;
 				}
 			}
 
 			final BufferOrEvent bufferOrEvent = barrierBuffer.getNextNonBlocked();
 
+			if (qosCallback != null) {
+				// TODO set bufferInterarrivalTimeNanos and recordsReadFromBuffer
+				qosCallback.inputBufferConsumed(bufferOrEvent.getChannelIndex(), 0, 0);
+			}
+
 			if (bufferOrEvent.isBuffer()) {
-				currentRecordDeserializer = recordDeserializers[bufferOrEvent.getChannelIndex()];
+				currentRecordDeserializerIndex = bufferOrEvent.getChannelIndex();
+				currentRecordDeserializer = recordDeserializers[currentRecordDeserializerIndex];
 				currentRecordDeserializer.setNextBuffer(bufferOrEvent.getBuffer());
 			} else {
 				// Event received
@@ -129,5 +149,13 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 
 	public void cleanup() throws IOException {
 		barrierBuffer.cleanup();
+	}
+
+	public InputGateQosReportingListener getQosCallback() {
+		return qosCallback;
+	}
+
+	public void setQosCallback(InputGateQosReportingListener qosCallback) {
+		this.qosCallback = qosCallback;
 	}
 }

@@ -25,12 +25,17 @@ import org.apache.flink.runtime.jobgraph.IntermediateDataSet;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobEdge;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
-import org.apache.flink.streaming.api.constraint.StreamGraphConstraint;
-import org.apache.flink.streaming.api.constraint.StreamGraphSequenceElement;
+import org.apache.flink.streaming.api.constraint.ConstraintBoundary;
+import org.apache.flink.streaming.api.constraint.ConstraintGroupConfiguration;
+import org.apache.flink.streaming.api.constraint.JobGraphConstraintGroup;
+import org.apache.flink.streaming.api.constraint.JobGraphSequenceElement;
+import org.apache.flink.streaming.api.constraint.JobGraphSequenceFinder;
+import org.apache.flink.streaming.api.constraint.identifier.ConstraintGroupIdentifier;
 import org.apache.flink.streaming.api.graph.StreamGraph.StreamLoop;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperator.ChainingStrategy;
@@ -55,7 +60,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class StreamingJobGraphGenerator {
 
@@ -145,8 +149,25 @@ public class StreamingJobGraphGenerator {
 	}
 
 	private void setChaining() {
+		if (streamGraph.hasLatencyConstraints() && streamGraph.isChainingEnabled()) {
+			// prevent chaining over constraint boundaries (if desired)
+			for (ConstraintGroupConfiguration conf : streamGraph.getConstraintConfigurations().values()) {
+				if (conf.isDisableChaining()) {
+					adjustChaining(conf.getStart().getTargetId());
+					adjustChaining(conf.getEnd().getTargetId());
+				}
+			}
+		}
+
 		for (Integer sourceName : streamGraph.getSourceIDs()) {
 			createChain(sourceName, sourceName);
+		}
+	}
+
+	private void adjustChaining(int vertexId) {
+		StreamOperator<?, ?> invokable = streamGraph.getVertex(vertexId).getOperator();
+		if (invokable.getChainingStrategy() == ChainingStrategy.ALWAYS) {
+			invokable.setChainingStrategy(ChainingStrategy.HEAD);
 		}
 	}
 
@@ -363,11 +384,54 @@ public class StreamingJobGraphGenerator {
 	}
 
 	private void setLatencyConstraints() {
-		if (streamGraph.isChainingEnabled()) {
-			// TODO: handle chaining
-			throw new RuntimeException("Sorry, chaining is not supported!");
+		// calcuate constraints
+		Map<ConstraintGroupIdentifier, JobGraphConstraintGroup> constraints =
+				new HashMap<ConstraintGroupIdentifier, JobGraphConstraintGroup>();
+		Map<ConstraintGroupIdentifier, ConstraintGroupConfiguration> confs = streamGraph.getConstraintConfigurations();
+
+
+		for (Map.Entry<ConstraintGroupIdentifier, ConstraintGroupConfiguration> entry : confs.entrySet()) {
+			ConstraintBoundary beginEdge = entry.getValue().getStart();
+			ConstraintBoundary endEdge = entry.getValue().getEnd();
+
+			AbstractJobVertex beginVertex = jobVertices.get(beginEdge.getTargetId());
+			AbstractJobVertex endVertex = jobVertices.get(endEdge.getSourceId());
+
+			if (beginVertex == null || endVertex == null) {
+				throw new IllegalStateException("Chaining over latency constraint boundaries detected. " +
+						"Please disable chaining over the constraint boundaries.");
+			}
+
+			JobVertexID beginId = beginVertex.getID();
+			JobVertexID endId = endVertex.getID();
+
+			JobGraphSequenceFinder jobGraphSequenceFinder = new JobGraphSequenceFinder(jobGraph);
+			List<org.apache.flink.streaming.api.constraint.JobGraphSequence> sequences =
+					jobGraphSequenceFinder.findAllSequencesBetween(beginId, endId);
+
+			for (org.apache.flink.streaming.api.constraint.JobGraphSequence sequence : sequences) {
+				// add first edge
+				JobVertexID beginSource = jobVertices.get(beginEdge.getSourceId()).getID();
+				sequence.addFirst(new JobGraphSequenceElement(beginSource, beginId, 0));
+
+				// add last edge
+				JobVertexID endTarget = jobVertices.get(endEdge.getTargetId()).getID();
+				sequence.addLast(new JobGraphSequenceElement(endId, endTarget, 0));
+			}
+
+			JobGraphConstraintGroup constraintGroup = new JobGraphConstraintGroup(sequences,
+					entry.getValue().getMaxLatency());
+			constraints.put(entry.getKey(), constraintGroup);
 		}
 
+
+		setLatencyConstraints(constraints);
+	}
+
+
+	// TODO clean this up
+	// some of this is actually obsolete, as the constraints are already calculated on job graph level
+	private void setLatencyConstraints(Map<ConstraintGroupIdentifier, JobGraphConstraintGroup> constraints) {
 		jobGraph.setCustomStatisticsEnabled(true);
 		jobGraph.setCustomAbstractCentralStatisticsHandler(new CentralQosStatisticsHandler());
 		// central statistics handler (job manager) report interval
@@ -376,51 +440,58 @@ public class StreamingJobGraphGenerator {
 		// forwarder (task manager) report interval
 		jobGraph.getJobConfiguration().setLong(QosReportForwarderThread.FORWARDER_REPORT_INTERVAL_KEY, reportInterval);
 
-		Set<StreamGraphConstraint> constraints = streamGraph.calculateConstraints();
-		for (StreamGraphConstraint constraint : constraints) {
-			JobGraphSequence seq = new JobGraphSequence();
-			int lastInputGateIndex = -1;
 
-			for (StreamGraphSequenceElement element : constraint.getSequence()) {
-				if (!element.isVertex()) {
-					AbstractJobVertex sourceVertex = jobVertices.get(element.getSourceVertexId());
-					AbstractJobVertex targetVertex = jobVertices.get(element.getTargetVertexId());
-					List<IntermediateDataSet> producedDataSets = sourceVertex.getProducedDataSets();
-					List<JobEdge> inputEdges = targetVertex.getInputs();
-					JobEdge edge = null;
+		for (Map.Entry<ConstraintGroupIdentifier, JobGraphConstraintGroup> entry : constraints.entrySet()) {
+			ConstraintGroupIdentifier identifier = entry.getKey();
+			JobGraphConstraintGroup constraintGroup = entry.getValue();
 
-					for (JobEdge e : inputEdges) {
-						if (e.getSource().getProducer().getID().equals(sourceVertex.getID())) {
-							edge = e;
-							break;
+			for (org.apache.flink.streaming.api.constraint.JobGraphSequence sequence : constraintGroup.getSequences()) {
+				JobGraphSequence seq = new JobGraphSequence();
+				int lastInputGateIndex = -1;
+
+				for (JobGraphSequenceElement element : sequence) {
+
+					if (!element.isVertex()) {
+						AbstractJobVertex sourceVertex = jobGraph.findVertexByID(element.getVertexId());
+						AbstractJobVertex targetVertex = jobGraph.findVertexByID(element.getTargetId());
+						List<IntermediateDataSet> producedDataSets = sourceVertex.getProducedDataSets();
+						List<JobEdge> inputEdges = targetVertex.getInputs();
+
+						JobEdge edge = null;
+						for (JobEdge e : inputEdges) {
+							if (producedDataSets.get(element.getTargetIndex()).getId().equals(e.getSourceId())) {
+								edge = e;
+								break;
+							}
 						}
+						if (edge == null) {
+							throw new RuntimeException("Error when calculating latency constraints. This is a bug.");
+						}
+
+						int outputGateIndex = producedDataSets.indexOf(edge.getSource());
+						int inputGateIndex = inputEdges.indexOf(edge);
+
+						if (element.getTargetIndex() != outputGateIndex) {
+							throw new RuntimeException("Target and output gate index are not equal! This is Bug.");
+						}
+
+						// constraint always begin and end with a edge at the moment
+						if (!(element == sequence.getFirst() || element == sequence.getLast())) {
+							addVertexQosConfig(seq, sourceVertex, lastInputGateIndex, outputGateIndex);
+						}
+						addEdgeQosConfig(seq, edge.getSourceId(), sourceVertex, outputGateIndex, targetVertex, inputGateIndex);
+
+						lastInputGateIndex = inputGateIndex;
 					}
-
-					int outputGateIndex = producedDataSets.indexOf(edge.getSource());
-					int inputGateIndex = inputEdges.indexOf(edge);
-
-					if (element.getTargetIndex() != outputGateIndex) {
-						throw new RuntimeException("Target and output gate index are not equal! This is Bug.");
-					}
-
-					addVertexQosConfig(seq, sourceVertex, lastInputGateIndex, outputGateIndex);
-					addEdgeQosConfig(seq, edge.getSourceId(),
-							sourceVertex, outputGateIndex, targetVertex, inputGateIndex);
-
-					lastInputGateIndex = inputGateIndex;
 				}
-			}
 
-			// add last vertex
-			AbstractJobVertex lastVertex = jobVertices.get(constraint.getSequence().getLast().getVertexID());
-			addVertexQosConfig(seq, lastVertex, lastInputGateIndex, -1);
-
-			// persist constraints in job graph
-			try {
-				String name = constraint.getName(seq.getFirstVertex().getName(), seq.getLastVertex().getName());
-				ConstraintUtil.defineLatencyConstraint(seq, constraint.getLatencyConstraintInMillis(), jobGraph, name);
-			} catch(IOException e) {
-				throw new RuntimeException("LatencyConstraint serialization failed.");
+				// persist constraints in job graph
+				try {
+					String name = identifier.toString() + ": " + sequence.toString();
+					ConstraintUtil.defineLatencyConstraint(seq, constraintGroup.getMaxLatency(), jobGraph, name);
+				} catch (IOException e) {
+					throw new RuntimeException("LatencyConstraint serialization failed.");
+				}
 			}
 		}
 	}
