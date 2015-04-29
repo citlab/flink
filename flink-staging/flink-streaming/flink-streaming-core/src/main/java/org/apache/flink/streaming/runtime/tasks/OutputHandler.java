@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.flink.runtime.io.network.api.writer.RecordWriter;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.streaming.api.collector.CollectorWrapper;
@@ -33,6 +32,7 @@ import org.apache.flink.streaming.api.collector.selector.OutputSelectorWrapper;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.graph.StreamEdge;
 import org.apache.flink.streaming.api.operators.ChainableStreamOperator;
+import org.apache.flink.streaming.runtime.io.QosReportingRecordWriter;
 import org.apache.flink.streaming.runtime.io.RecordWriterFactory;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -185,8 +185,10 @@ public class OutputHandler<OUT> {
 
 		ResultPartitionWriter bufferWriter = vertex.getEnvironment().getWriter(outputIndex);
 
-		RecordWriter<SerializationDelegate<StreamRecord<T>>> output =
+		QosReportingRecordWriter<SerializationDelegate<StreamRecord<T>>> output =
 				RecordWriterFactory.createRecordWriter(bufferWriter, outputPartitioner, upStreamConfig.getBufferTimeout());
+
+		vertex.getQosCoordinator().setupOutputQosListener(output);
 
 		StreamOutput<T> streamOutput = new StreamOutput<T>(output, vertex.instanceID,
 				outSerializationDelegate);
