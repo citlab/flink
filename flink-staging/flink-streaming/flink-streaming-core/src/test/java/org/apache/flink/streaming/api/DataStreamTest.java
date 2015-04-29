@@ -18,19 +18,21 @@
 package org.apache.flink.streaming.api;
 
 import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.streaming.api.constraint.StreamGraphConstraint;
+import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.co.CoFlatMapFunction;
+import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.streaming.statistics.ConstraintUtil;
+import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
 import org.apache.flink.test.testdata.WordCountData;
 import org.apache.flink.util.Collector;
 import org.junit.Test;
 
-import java.util.Iterator;
-import java.util.Set;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 
@@ -39,17 +41,27 @@ public class DataStreamTest {
 	/**
 	 * Generate a graph with two sequences => two constraints.
 	 *
-	 * source -> mapA --------> coFlatMap
-	 *        -> mapB1 -> mapB2
+	 *                       -> mapB1 -> mapB2 ->
+	 * source -> afterSource -> mapA -----------> coFlatMap -> sink
+	 *        ^ 										 												^
+	 *     constraint																		constraint
+	 *     begin																				end
 	 */
 	@Test
 	public void testConstraint() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		DataStreamSource<String> source = env.fromElements(WordCountData.STREAMING_COUNTS_AS_TUPLES);
 
-		source.beginLatencyConstraint("testConstraint", 100);
+		DataStream<String> afterSource = source
+				.beginLatencyConstraint(100, true)
+				.map(new MapFunction<String, String>() {
+					@Override
+					public String map(String value) throws Exception {
+						return "afterSource";
+					}
+				});
 
-		DataStream<String> mapA = source
+		DataStream<String> mapA = afterSource
 				.map(new MapFunction<String, String>() {
 					@Override
 					public String map(String value) throws Exception {
@@ -57,7 +69,7 @@ public class DataStreamTest {
 					}
 				});
 
-		DataStream<String> mapB1 = source
+		DataStream<String> mapB1 = afterSource
 				.map(new MapFunction<String, String>() {
 					@Override
 					public String map(String value) throws Exception {
@@ -87,23 +99,20 @@ public class DataStreamTest {
 					}
 				});
 
-		coFlatMap.finishLatencyConstraint();
+		coFlatMap
+				.finishLatencyConstraint()
+				.addSink(new SinkFunction<String>() {
+					@Override
+					public void invoke(String value) throws Exception {
+						// do nothing
+					}
+				});
 
 		StreamGraph streamGraph = env.getStreamGraph();
+		streamGraph.setChaining(false);
+		JobGraph jobGraph = streamGraph.getJobGraph();
 
-		streamGraph.calculateConstraints();
-		Set<StreamGraphConstraint> constraints = streamGraph.calculateConstraints();
+		List<JobGraphLatencyConstraint> constraints = ConstraintUtil.getConstraints(jobGraph.getJobConfiguration());
 		assertEquals(2, constraints.size());
-
-		Iterator<StreamGraphConstraint> iterator = constraints.iterator();
-		StreamGraphConstraint constraintA = iterator.next();
-		assertEquals(100, constraintA.getLatencyConstraintInMillis());
-		assertEquals(5, constraintA.getSequence().size());
-		assertEquals("testConstraint (1)", constraintA.getName("1", "2"));
-
-		StreamGraphConstraint constraintB = iterator.next();
-		assertEquals(100, constraintB.getLatencyConstraintInMillis());
-		assertEquals(7, constraintB.getSequence().size());
-		assertEquals("testConstraint (2)", constraintB.getName("1", "2"));
 	}
 }
