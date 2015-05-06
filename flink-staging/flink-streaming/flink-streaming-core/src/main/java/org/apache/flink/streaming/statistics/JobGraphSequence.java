@@ -18,16 +18,13 @@
 
 package org.apache.flink.streaming.statistics;
 
-import java.io.IOException;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
+
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
-
-import org.apache.flink.core.io.IOReadableWritable;
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
-import org.apache.flink.runtime.jobgraph.JobVertexID;
 
 /**
  * This class is used to unambiguously specify constraints on the job graph
@@ -41,7 +38,7 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
  * @author Bjoern Lohrmann
  */
 public class JobGraphSequence extends LinkedList<SequenceElement>
-		implements IOReadableWritable {
+		implements Serializable {
 
 	private static final long serialVersionUID = 1199328037569471951L;
 
@@ -88,27 +85,6 @@ public class JobGraphSequence extends LinkedList<SequenceElement>
 		JobGraphSequence clone = (JobGraphSequence) super.clone();
 		clone.verticesInSequence = (HashSet<JobVertexID>) this.verticesInSequence.clone();
 		return clone;
-	}
-
-	@Override
-	public void write(DataOutputView out) throws IOException {
-		out.writeInt(this.size());
-		for (SequenceElement element : this) {
-			element.write(out);
-		}
-	}
-
-	@Override
-	public void read(DataInputView in) throws IOException {
-		int elementCount = in.readInt();
-		for (int i = 0; i < elementCount; i++) {
-			SequenceElement element = new SequenceElement();
-			element.read(in);
-			this.add(element);
-			if (element.isVertex()) {
-				this.verticesInSequence.add(element.getVertexID());
-			}
-		}
 	}
 
 	public Collection<JobVertexID> getVerticesInSequence() {

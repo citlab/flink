@@ -18,11 +18,8 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmanager;
 
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosEdge;
 
-import java.io.IOException;
 import java.util.List;
 
 public class QosGroupEdgeSummary implements QosGroupElementSummary {
@@ -258,40 +255,5 @@ public class QosGroupEdgeSummary implements QosGroupElementSummary {
 			meanConsumerVertexInterarrivalTime /= activeConsumerVertices;
 			meanConsumerVertexInterarrivalTimeCV /= activeConsumerVertices;
 		}
-	}
-
-	@Override
-	public void write(DataOutputView out) throws IOException {
-		out.writeInt(activeEdges);
-		out.writeDouble(outputBufferLatencyMean);
-		out.writeDouble(transportLatencyMean);
-		
-		out.writeInt(activeEmitterVertices);
-		out.writeDouble(meanEmissionRate);
-
-		out.writeInt(activeConsumerVertices);
-		out.writeDouble(meanConsumptionRate);
-		out.writeDouble(meanConsumerVertexLatency);
-		out.writeDouble(meanConsumerVertexLatencyCV);
-		out.writeDouble(meanConsumerVertexInterarrivalTime);
-		out.writeDouble(meanConsumerVertexInterarrivalTimeCV);
-
-	}
-
-	@Override
-	public void read(DataInputView in) throws IOException {
-		activeEdges = in.readInt();
-		outputBufferLatencyMean = in.readDouble();
-		transportLatencyMean = in.readDouble();
-		
-		activeEmitterVertices = in.readInt();
-		meanEmissionRate = in.readDouble();
-
-		activeConsumerVertices = in.readInt();
-		meanConsumptionRate = in.readDouble();
-		meanConsumerVertexLatency = in.readDouble();
-		meanConsumerVertexLatencyCV = in.readDouble();
-		meanConsumerVertexInterarrivalTime = in.readDouble();
-		meanConsumerVertexInterarrivalTimeCV = in.readDouble();
 	}
 }

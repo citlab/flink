@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.flink.api.common.ExecutionConfig;
@@ -483,7 +484,7 @@ public class StreamingJobGraphGenerator {
 			try {
 				String name = constraint.getName(seq.getFirstVertex().getName(), seq.getLastVertex().getName());
 				ConstraintUtil.defineLatencyConstraint(seq, constraint.getLatencyConstraintInMillis(), jobGraph, name);
-			} catch(IOException e) {
+			} catch(Exception e) {
 				throw new RuntimeException("LatencyConstraint serialization failed.");
 			}
 		}

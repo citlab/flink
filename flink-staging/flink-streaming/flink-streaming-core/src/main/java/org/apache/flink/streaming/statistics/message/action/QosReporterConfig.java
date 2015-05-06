@@ -18,10 +18,8 @@
 
 package org.apache.flink.streaming.statistics.message.action;
 
-import org.apache.flink.core.io.IOReadableWritable;
-
 import java.io.Serializable;
 
-public interface QosReporterConfig extends IOReadableWritable, Serializable {
+public interface QosReporterConfig extends Serializable {
 
 }

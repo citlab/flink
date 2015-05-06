@@ -29,7 +29,6 @@ import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
 import org.apache.flink.streaming.statistics.LatencyConstraintID;
 import org.apache.flink.streaming.statistics.SequenceElement;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -226,7 +225,7 @@ public class QosGraph {
 				qosGraph.addConstrainedQosGraph(execGraph, constraint);
 			}
 
-		} catch(IOException e) {
+		} catch(Exception e) {
 			throw new RuntimeException("Can't read qos constrain from job config.", e);
 		}
 
