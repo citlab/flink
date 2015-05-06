@@ -85,6 +85,7 @@ public class QosGraph {
 		if (groupVertex == null) {
 			groupVertex = new QosGroupVertex(
 					execVertex.getJobVertexId(), execVertex.getJobVertex().getName());
+			this.vertexByID.put(execVertex.getJobVertexId(), groupVertex);
 		}
 
 		return groupVertex;
