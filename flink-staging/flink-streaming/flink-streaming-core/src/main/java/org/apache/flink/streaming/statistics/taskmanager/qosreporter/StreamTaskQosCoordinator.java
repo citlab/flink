@@ -136,26 +136,7 @@ public class StreamTaskQosCoordinator {
 		IntermediateDataSetID dataSetID = config.getIntermediateDataSetID();
 		boolean installed = false;
 
-		// find input gate
-		int inputGateIndex = config.getInputGateIndex();
-		InputGate[] inputGates = this.taskEnvironment.getAllInputGates();
-		if (inputGateIndex < inputGates.length
-				&& (inputGates[inputGateIndex] instanceof SingleInputGate)
-				&& dataSetID.equals(((SingleInputGate)inputGates[inputGateIndex]).getConsumedResultId())) {
-
-			SingleInputGate inputGate = (SingleInputGate) inputGates[inputGateIndex];
-			int subPartitionIndex = this.task.getIndexInSubtaskGroup();
-
-			for (InputChannel channel : inputGate.getAllInputChannels()) {
-				IntermediateResultPartitionID partitionID = channel.getPartitionId().getPartitionId();
-				QosReporterID.Edge reporterID = QosReporterID.forEdge(partitionID, subPartitionIndex);
-				installInputGateListeners(reporterID, config);
-				installed = true;
-			}
-		}
-
-		// find output gate
-		if (!installed) {
+		if (config.isSourceTaskConfig()) {
 			int outputGateIndex = config.getOutputGateIndex();
 			ResultPartitionWriter[] writers = this.taskEnvironment.getAllWriters();
 
@@ -168,6 +149,24 @@ public class StreamTaskQosCoordinator {
 				for (int subIndex = 0; subIndex < writer.getNumberOfOutputChannels(); subIndex++) {
 					QosReporterID.Edge reporterID = QosReporterID.forEdge(partitionID, subIndex);
 					installOutputGateListeners(reporterID, config);
+					installed = true;
+				}
+			}
+
+		} else {
+			int inputGateIndex = config.getInputGateIndex();
+			InputGate[] inputGates = this.taskEnvironment.getAllInputGates();
+			if (inputGateIndex < inputGates.length
+					&& (inputGates[inputGateIndex] instanceof SingleInputGate)
+					&& dataSetID.equals(((SingleInputGate) inputGates[inputGateIndex]).getConsumedResultId())) {
+
+				SingleInputGate inputGate = (SingleInputGate) inputGates[inputGateIndex];
+				int subPartitionIndex = this.task.getIndexInSubtaskGroup();
+
+				for (InputChannel channel : inputGate.getAllInputChannels()) {
+					IntermediateResultPartitionID partitionID = channel.getPartitionId().getPartitionId();
+					QosReporterID.Edge reporterID = QosReporterID.forEdge(partitionID, subPartitionIndex);
+					installInputGateListeners(reporterID, config);
 					installed = true;
 				}
 			}
