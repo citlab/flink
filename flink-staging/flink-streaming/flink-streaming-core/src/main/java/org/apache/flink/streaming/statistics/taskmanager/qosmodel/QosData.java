@@ -18,25 +18,5 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmodel;
 
-import org.apache.flink.streaming.statistics.message.action.QosReporterConfig;
-import org.apache.flink.streaming.statistics.message.qosreport.AbstractQosReportRecord;
-
-/**
- * Common interface for {@link QosVertex} and {@link QosEdge} objects. This
- * interface exists to provide a common supertype for these elements as we often
- * have to deal with sequences that mix vertices and edges.
- *
- * @author Bjoern Lohrmann
- *
- */
-public interface QosGraphMember {
-
-	public boolean isVertex();
-
-	public boolean isEdge();
-
-	public void processStatistics(QosReporterConfig reporterConfig,
-					AbstractQosReportRecord statistic, long now);
-
-	public QosData getQosData();
+public interface QosData {
 }

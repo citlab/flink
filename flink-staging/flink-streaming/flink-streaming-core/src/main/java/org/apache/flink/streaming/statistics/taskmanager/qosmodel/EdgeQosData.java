@@ -29,7 +29,7 @@ import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
  * @author Bjoern Lohrmann
  *
  */
-public class EdgeQosData {
+public class EdgeQosData implements QosData {
 
 	private QosEdge edge;
 

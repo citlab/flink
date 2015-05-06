@@ -32,7 +32,7 @@ import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
  * @author Bjoern Lohrmann
  *
  */
-public class VertexQosData {
+public class VertexQosData implements QosData {
 
 	private final QosVertex vertex;
 

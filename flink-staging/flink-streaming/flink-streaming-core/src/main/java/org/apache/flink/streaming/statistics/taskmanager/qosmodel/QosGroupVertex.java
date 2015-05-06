@@ -18,12 +18,10 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmodel;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-
-import org.apache.flink.runtime.instance.InstanceConnectionInfo;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.streaming.statistics.util.SparseDelegateIterable;
+
+import java.util.ArrayList;
 
 /**
  * This class models a Qos group vertex as part of a Qos graph. It is equivalent
@@ -85,12 +83,9 @@ public class QosGroupVertex {
 	 */
 	private int noOfInputGates;
 
-	private int noOfExecutingInstances;
-
 	public QosGroupVertex(JobVertexID jobVertexID, String name) {
 		this.name = name;
 		this.jobVertexID = jobVertexID;
-		this.noOfExecutingInstances = -1;
 		this.noOfMembers = 0;
 		this.groupMembers = new ArrayList<QosVertex>();
 		this.forwardEdges = new ArrayList<QosGroupEdge>();
@@ -180,23 +175,6 @@ public class QosGroupVertex {
 			groupMember.setGroupVertex(this);
 			this.groupMembers.set(groupMember.getMemberIndex(), groupMember);
 		}
-		this.noOfExecutingInstances = -1;
-	}
-
-	public int getNumberOfExecutingInstances() {
-		if (this.noOfExecutingInstances == -1) {
-			this.countExecutingInstances();
-		}
-
-		return this.noOfExecutingInstances;
-	}
-
-	private void countExecutingInstances() {
-		HashSet<InstanceConnectionInfo> instances = new HashSet<InstanceConnectionInfo>();
-		for (QosVertex memberVertex : this.getMembers()) {
-			instances.add(memberVertex.getExecutingInstance());
-		}
-		this.noOfExecutingInstances = instances.size();
 	}
 
 	@Override
@@ -204,21 +182,11 @@ public class QosGroupVertex {
 		return this.name;
 	}
 
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see java.lang.Object#hashCode()
-	 */
 	@Override
 	public int hashCode() {
 		return this.jobVertexID.hashCode();
 	}
 
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see java.lang.Object#equals(java.lang.Object)
-	 */
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) {
@@ -279,51 +247,5 @@ public class QosGroupVertex {
 	 */
 	public int getNumberOfMembers() {
 		return this.noOfMembers;
-	}
-
-	/**
-	 * Clones this group vertex including members but excluding any group edges
-	 * or member gates.
-	 *
-	 * @return The cloned object
-	 */
-	public QosGroupVertex cloneWithoutEdges() {
-		QosGroupVertex clone = new QosGroupVertex(this.jobVertexID, this.name);
-		clone.noOfExecutingInstances = this.noOfExecutingInstances;
-		clone.groupMembers = new ArrayList<QosVertex>();
-		for (QosVertex member : this.groupMembers) {
-			if (member != null) {
-				clone.setGroupMember(member.emptyClone());
-			}
-		}
-		return clone;
-	}
-
-	/**
-	 * Clones this group vertex without forward/backward group edges and without
-	 * members.
-	 *
-	 * @return The cloned object
-	 */
-	public QosGroupVertex cloneWithoutMembersOrEdges() {
-		QosGroupVertex clone = new QosGroupVertex(this.jobVertexID, this.name);
-		return clone;
-	}
-
-	public QosGroupEdge wireTo(QosGroupVertex target, QosGroupEdge templateEdge) {
-		// already invokes the setForward/BackwardEdge methods
-		return new QosGroupEdge(templateEdge.getDistributionPattern(), this,
-				target, templateEdge.getOutputGateIndex(),
-				templateEdge.getInputGateIndex());
-
-	}
-
-	public QosGroupEdge wireFrom(QosGroupVertex source,
-			QosGroupEdge templateEdge) {
-		// already invokes the setForward/BackwardEdge methods
-		return new QosGroupEdge(templateEdge.getDistributionPattern(), source,
-				this, templateEdge.getOutputGateIndex(),
-				templateEdge.getInputGateIndex());
-
 	}
 }
