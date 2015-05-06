@@ -510,10 +510,13 @@ public class StreamingJobGraphGenerator {
 
 		seq.addEdge(sourceVertex.getID(), outputGateIndex, targetVertex.getID(), inputGateIndex);
 		String name = String.format("%s -> %s", sourceVertex.getName(), targetVertex.getName());
-		EdgeQosReporterConfig reporterConfig = new EdgeQosReporterConfig(dataSetID, outputGateIndex, inputGateIndex, name);
 		StreamConfig sourceConfig = new StreamConfig(sourceVertex.getConfiguration());
-		sourceConfig.addQosReporterConfigs(reporterConfig);
+		sourceConfig.addQosReporterConfigs(
+			EdgeQosReporterConfig.sourceTaskConfig(dataSetID, outputGateIndex, inputGateIndex, name)
+		);
 		StreamConfig targetConfig = new StreamConfig(targetVertex.getConfiguration());
-		targetConfig.addQosReporterConfigs(reporterConfig);
+		targetConfig.addQosReporterConfigs(
+			EdgeQosReporterConfig.targetTaskConfig(dataSetID, outputGateIndex, inputGateIndex, name)
+		);
 	}
 }

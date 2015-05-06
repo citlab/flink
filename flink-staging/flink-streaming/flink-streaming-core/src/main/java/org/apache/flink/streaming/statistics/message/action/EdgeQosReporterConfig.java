@@ -43,6 +43,14 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 
 	private int inputGateIndex; // optional (based on intermediate result)
 
+	public enum Side {
+		SOURCE,
+		TARGET
+	}
+
+	/** Source and target reporter configs differs only in this field. */
+	private Side deploymentSide;
+
 	private String name;
 
 	public EdgeQosReporterConfig() {
@@ -52,11 +60,13 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 	 * Initializes EdgeQosReporterConfig.
 	 */
 	public EdgeQosReporterConfig(IntermediateDataSetID intermediateDataSetID,
-			int outputGateIndex, int inputGateIndex, String name) {
+			int outputGateIndex, int inputGateIndex,
+			Side deploymentSide, String name) {
 
 		this.intermediateDataSetID = intermediateDataSetID;
 		this.outputGateIndex = outputGateIndex;
 		this.inputGateIndex = inputGateIndex;
+		this.deploymentSide = deploymentSide;
 		this.name = name;
 	}
 
@@ -70,6 +80,14 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 
 	public int getInputGateIndex() {
 		return this.inputGateIndex;
+	}
+
+	public boolean isSourceTaskConfig() {
+		return this.deploymentSide == Side.SOURCE;
+	}
+
+	public boolean isTargetTaskConfig() {
+		return this.deploymentSide == Side.TARGET;
 	}
 
 	public String getName() {
