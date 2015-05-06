@@ -18,7 +18,6 @@
 
 package org.apache.flink.streaming.statistics.message.qosreport;
 
-import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 
 import java.io.Serializable;
@@ -28,6 +27,6 @@ import java.io.Serializable;
  *
  * @author Bjoern Lohrmann, Sascha Wolke
  */
-public abstract class AbstractQosReportRecord implements IOReadableWritable, Serializable {
+public abstract class AbstractQosReportRecord implements Serializable {
 	public abstract QosReporterID getReporterID();
 }
