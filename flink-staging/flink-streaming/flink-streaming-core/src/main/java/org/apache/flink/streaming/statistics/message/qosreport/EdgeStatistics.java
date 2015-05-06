@@ -18,11 +18,11 @@
 
 package org.apache.flink.streaming.statistics.message.qosreport;
 
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
 /**
  * This class holds statistical information about an edge (output channel side),
@@ -145,19 +145,16 @@ public final class EdgeStatistics extends AbstractQosReportRecord {
 				(recordsPerSecond + other.recordsPerSecond) / 2);
 	}
 
-	@Override
-	public void write(final DataOutputView out) throws IOException {
-		this.reporterID.write(out);
+	private void writeObject(ObjectOutputStream out) throws IOException {
+		out.writeObject(this.reporterID);
 		out.writeDouble(this.getThroughput());
 		out.writeDouble(this.getOutputBufferLifetime());
 		out.writeDouble(this.getRecordsPerBuffer());
 		out.writeDouble(this.getRecordsPerSecond());
 	}
 
-	@Override
-	public void read(final DataInputView in) throws IOException {
-		this.reporterID = new QosReporterID.Edge();
-		this.reporterID.read(in);
+	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+		this.reporterID = (QosReporterID.Edge) in.readObject();
 		this.throughput = in.readDouble();
 		this.outputBufferLifetime = in.readDouble();
 		this.recordsPerBuffer = in.readDouble();

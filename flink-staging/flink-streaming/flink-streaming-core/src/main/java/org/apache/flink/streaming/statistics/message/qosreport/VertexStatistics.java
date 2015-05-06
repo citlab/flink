@@ -18,12 +18,12 @@
 
 package org.apache.flink.streaming.statistics.message.qosreport;
 
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.Sample;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
 /**
  * This class stores information about the latency (interread time), record
@@ -151,9 +151,8 @@ public final class VertexStatistics extends AbstractQosReportRecord {
 		return fused;
 	}
 
-	@Override
-	public void write(final DataOutputView out) throws IOException {
-		this.reporterID.write(out);
+	private void writeObject(ObjectOutputStream out) throws IOException {
+		out.writeObject(this.reporterID);
 		out.writeBoolean(this.igIsChained);
 
 		boolean hasInputGate = reporterID.hasInputDataSetID();
@@ -161,9 +160,9 @@ public final class VertexStatistics extends AbstractQosReportRecord {
 
 		if (hasInputGate) {
 			if (!igIsChained) {
-				recordInterArrivalTimeMillis.write(out);
+				out.writeObject(recordInterArrivalTimeMillis);
 			}
-			igInterReadTimeMillis.write(out);
+			out.writeObject(igInterReadTimeMillis);
 			out.writeDouble(this.getRecordsConsumedPerSec());
 		}
 
@@ -172,10 +171,8 @@ public final class VertexStatistics extends AbstractQosReportRecord {
 		}
 	}
 
-	@Override
-	public void read(final DataInputView in) throws IOException {
-		this.reporterID = new QosReporterID.Vertex();
-		this.reporterID.read(in);
+	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+		this.reporterID = (QosReporterID.Vertex) in.readObject();
 		this.igIsChained = in.readBoolean();
 
 		boolean hasInputGate = reporterID.hasInputDataSetID();
@@ -183,11 +180,9 @@ public final class VertexStatistics extends AbstractQosReportRecord {
 
 		if (hasInputGate) {
 			if (!igIsChained) {
-				recordInterArrivalTimeMillis = new Sample();
-				recordInterArrivalTimeMillis.read(in);
+				recordInterArrivalTimeMillis = (Sample) in.readObject();
 			}
-			igInterReadTimeMillis = new Sample();
-			igInterReadTimeMillis.read(in);
+			igInterReadTimeMillis = (Sample) in.readObject();
 			this.recordsConsumedPerSec = in.readDouble();
 		}
 

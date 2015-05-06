@@ -18,13 +18,9 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling;
 
-import org.apache.flink.core.io.IOReadableWritable;
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
+import java.io.Serializable;
 
-import java.io.IOException;
-
-public class Sample implements IOReadableWritable {
+public class Sample implements Serializable {
 
 	private int samplingDurationMillis;
 	private int noOfSamplePoints;
@@ -79,22 +75,6 @@ public class Sample implements IOReadableWritable {
 
 		return new Sample(newSamplingDuration, newSamplePoints, newMean,
 				newVariance);
-	}
-
-	@Override
-	public void write(DataOutputView out) throws IOException {
-		out.writeInt(samplingDurationMillis);
-		out.writeInt(noOfSamplePoints);
-		out.writeDouble(mean);
-		out.writeDouble(variance);
-	}
-
-	@Override
-	public void read(DataInputView in) throws IOException {
-		samplingDurationMillis = in.readInt();
-		noOfSamplePoints = in.readInt();
-		mean = in.readDouble();
-		variance = in.readDouble();
 	}
 
 	/**

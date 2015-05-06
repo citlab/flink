@@ -18,11 +18,9 @@
 
 package org.apache.flink.streaming.statistics.message;
 
-import org.apache.flink.core.io.IOReadableWritable;
-
 /**
  * @author Bjoern Lohrmann
  */
-public abstract class AbstractSerializableQosMessage extends AbstractQosMessage implements IOReadableWritable {
+public abstract class AbstractSerializableQosMessage extends AbstractQosMessage {
 
 }

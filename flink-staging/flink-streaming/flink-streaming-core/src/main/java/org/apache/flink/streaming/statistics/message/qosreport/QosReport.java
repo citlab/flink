@@ -18,16 +18,12 @@
 
 package org.apache.flink.streaming.statistics.message.qosreport;
 
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.statistics.message.AbstractSerializableQosMessage;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map.Entry;
 
 /**
  * Holds Qos report data to be shipped to a specific Qos manager. Instead of
@@ -128,95 +124,6 @@ public class QosReport extends AbstractSerializableQosMessage {
 			return Collections.emptyList();
 		}
 		return this.vertexStatistics.values();
-	}
-
-	@Override
-	public void write(final DataOutputView out) throws IOException {
-		this.writeEdgeLatencies(out);
-		this.writeEdgeStatistics(out);
-		this.writeVertexLatencies(out);
-	}
-
-	private void writeEdgeLatencies(DataOutputView out) throws IOException {
-		if (this.edgeLatencies != null) {
-			out.writeInt(this.edgeLatencies.size());
-			for (Entry<QosReporterID.Edge, EdgeLatency> entry : this.edgeLatencies
-					.entrySet()) {
-				entry.getKey().write(out);
-				out.writeDouble(entry.getValue().getEdgeLatency());
-			}
-		} else {
-			out.writeInt(0);
-		}
-	}
-
-	private void writeEdgeStatistics(DataOutputView out) throws IOException {
-		if (this.edgeStatistics != null) {
-			out.writeInt(this.edgeStatistics.size());
-			for (Entry<QosReporterID.Edge, EdgeStatistics> entry : this.edgeStatistics
-					.entrySet()) {
-				entry.getKey().write(out);
-				out.writeDouble(entry.getValue().getThroughput());
-				out.writeDouble(entry.getValue().getOutputBufferLifetime());
-				out.writeDouble(entry.getValue().getRecordsPerBuffer());
-				out.writeDouble(entry.getValue().getRecordsPerSecond());
-			}
-		} else {
-			out.writeInt(0);
-		}
-	}
-
-	private void writeVertexLatencies(DataOutputView out) throws IOException {
-		if (this.vertexStatistics != null) {
-			out.writeInt(this.vertexStatistics.size());
-			for (VertexStatistics vertexStat : this.vertexStatistics.values()) {
-				vertexStat.write(out);
-			}
-		} else {
-			out.writeInt(0);
-		}
-	}
-
-	@Override
-	public void read(final DataInputView in) throws IOException {
-		this.readEdgeLatencies(in);
-		this.readOutputEdgeStatistics(in);
-		this.readVertexStatistics(in);
-	}
-
-	private void readEdgeLatencies(DataInputView in) throws IOException {
-		int toRead = in.readInt();
-		for (int i = 0; i < toRead; i++) {
-			QosReporterID.Edge reporterID = new QosReporterID.Edge();
-			reporterID.read(in);
-
-			EdgeLatency edgeLatency = new EdgeLatency(reporterID,
-					in.readDouble());
-			this.getOrCreateEdgeLatencyMap().put(reporterID, edgeLatency);
-		}
-	}
-
-	private void readOutputEdgeStatistics(DataInputView in) throws IOException {
-		int toRead = in.readInt();
-		for (int i = 0; i < toRead; i++) {
-			QosReporterID.Edge reporterID = new QosReporterID.Edge();
-			reporterID.read(in);
-
-			EdgeStatistics edgeStats = new EdgeStatistics(reporterID,
-					in.readDouble(), in.readDouble(), in.readDouble(),
-					in.readDouble());
-			this.getOrCreateEdgeStatisticsMap().put(reporterID, edgeStats);
-		}
-	}
-
-	private void readVertexStatistics(DataInputView in) throws IOException {
-		int toRead = in.readInt();
-		for (int i = 0; i < toRead; i++) {
-			VertexStatistics vertexStat = new VertexStatistics();
-			vertexStat.read(in);
-			this.getOrCreateVertexStatisticsMap().put(
-					vertexStat.getReporterID(), vertexStat);
-		}
 	}
 
 	public boolean isEmpty() {

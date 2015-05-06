@@ -19,11 +19,11 @@
 package org.apache.flink.streaming.statistics.message.qosreport;
 
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
 /**
  * This class stores information about the latency of a specific edge (channel).
@@ -68,16 +68,13 @@ public final class EdgeLatency extends AbstractQosReportRecord {
 		this.edgeLatency += other.getEdgeLatency();
 	}
 
-	@Override
-	public void write(final DataOutputView out) throws IOException {
-		this.reporterID.write(out);
+	private void writeObject(ObjectOutputStream out) throws IOException {
+		out.writeObject(this.reporterID);
 		out.writeDouble(this.getEdgeLatency());
 	}
 
-	@Override
-	public void read(final DataInputView in) throws IOException {
-		this.reporterID = new QosReporterID.Edge();
-		this.reporterID.read(in);
+	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+		this.reporterID = (QosReporterID.Edge) in.readObject();
 		this.edgeLatency = in.readDouble();
 		this.counter = 1;
 	}
