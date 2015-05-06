@@ -17,14 +17,14 @@
 
 package org.apache.flink.streaming.statistics;
 
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.jobgraph.AbstractJobVertex;
 import org.apache.flink.runtime.jobgraph.JobGraph;
-import org.apache.flink.runtime.util.DataInputDeserializer;
-import org.apache.flink.runtime.util.DataOutputSerializer;
-import org.apache.flink.runtime.util.SerializableArrayList;
+import org.apache.flink.util.InstantiationUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 
 /**
@@ -52,7 +52,8 @@ public class ConstraintUtil {
 	 *             input parameters.
 	 */
 	public static void defineLatencyConstraint(JobGraphSequence sequence,
-			long maxLatencyInMillis, JobGraph jobGraph, String name) throws IOException {
+			long maxLatencyInMillis, JobGraph jobGraph, String name)
+			throws IOException, ClassNotFoundException {
 
 		ensurePreconditions(sequence, jobGraph);
 
@@ -63,10 +64,10 @@ public class ConstraintUtil {
 	}
 
 	public static void addConstraint(JobGraphLatencyConstraint constraint,
-			JobGraph jobGraph) throws IOException {
+			JobGraph jobGraph) throws IOException, ClassNotFoundException {
 
 		Configuration jobConfig = jobGraph.getJobConfiguration();
-		SerializableArrayList<JobGraphLatencyConstraint> constraints = getConstraints(jobConfig);
+		ArrayList<JobGraphLatencyConstraint> constraints = getConstraints(jobConfig);
 		constraints.add(constraint);
 		putConstraints(jobConfig, constraints);
 	}
@@ -100,24 +101,23 @@ public class ConstraintUtil {
 	}
 
 	private static void putConstraints(Configuration jobConfiguration,
-			SerializableArrayList<JobGraphLatencyConstraint> constraints)
-			throws IOException {
+			ArrayList<JobGraphLatencyConstraint> constraints) throws IOException {
 
-		DataOutputSerializer bytesOut = new DataOutputSerializer(10*1024);
-		constraints.write(bytesOut);
 		jobConfiguration.setBytes(STREAMING_LATENCY_CONSTRAINTS_KEY,
-				bytesOut.wrapAsByteBuffer().array());
+				SerializationUtils.serialize(constraints));
 	}
 
-	public static SerializableArrayList<JobGraphLatencyConstraint> getConstraints(
-			Configuration jobConfiguration) throws IOException {
+	@SuppressWarnings("unchecked")
+	public static ArrayList<JobGraphLatencyConstraint> getConstraints(
+			Configuration jobConfiguration) throws IOException, ClassNotFoundException {
 
-		byte[] bytes = jobConfiguration.getBytes(STREAMING_LATENCY_CONSTRAINTS_KEY, null);
-		SerializableArrayList<JobGraphLatencyConstraint> list = new SerializableArrayList<JobGraphLatencyConstraint>();
+		ClassLoader cl = ConstraintUtil.class.getClassLoader();
+		ArrayList<JobGraphLatencyConstraint> list = (ArrayList<JobGraphLatencyConstraint>)
+				InstantiationUtil.readObjectFromConfig(
+						jobConfiguration, STREAMING_LATENCY_CONSTRAINTS_KEY, cl);
 
-		if (bytes != null) {
-			DataInputDeserializer bytesIn = new DataInputDeserializer(bytes, 0, bytes.length);
-			list.read(bytesIn);
+		if (list == null) {
+			list = new ArrayList<JobGraphLatencyConstraint>();
 		}
 
 		return list;

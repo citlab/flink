@@ -18,15 +18,10 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmanager;
 
-import org.apache.flink.core.io.IOReadableWritable;
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
 import org.apache.flink.streaming.statistics.LatencyConstraintID;
 
-import java.io.IOException;
-
-public class QosConstraintViolationReport implements IOReadableWritable {
+public class QosConstraintViolationReport {
 
 	private LatencyConstraintID constraintID;
 
@@ -167,35 +162,6 @@ public class QosConstraintViolationReport implements IOReadableWritable {
 				this.noOfSequencesBelowConstraint = 0;
 			}
 		}
-		this.isFinalized = true;
-	}
-
-	@Override
-	public void write(DataOutputView out) throws IOException {
-		ensureIsFinalized();
-
-		this.constraintID.write(out);
-		out.writeLong(latencyConstraintMillis);
-		out.writeDouble(minSequenceLatency);
-		out.writeDouble(maxSequenceLatency);
-		out.writeDouble(aggSequenceLatency);
-		out.writeInt(noOfSequences);
-		out.writeInt(noOfSequencesAboveConstraint);
-		out.writeInt(noOfSequencesBelowConstraint);
-	}
-
-	@Override
-	public void read(DataInputView in) throws IOException {
-		constraintID = new LatencyConstraintID();
-		constraintID.read(in);
-		latencyConstraintMillis = in.readLong();
-
-		this.minSequenceLatency = in.readDouble();
-		this.maxSequenceLatency = in.readDouble();
-		this.aggSequenceLatency = in.readDouble();
-		this.noOfSequences = in.readInt();
-		this.noOfSequencesAboveConstraint = in.readInt();
-		this.noOfSequencesBelowConstraint = in.readInt();
 		this.isFinalized = true;
 	}
 }

@@ -18,12 +18,12 @@
 
 package org.apache.flink.streaming.statistics;
 
-import java.io.IOException;
-
-import org.apache.flink.core.io.IOReadableWritable;
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 
 /**
  * A sequence is a series of connected vertices (tasks) and edges (channels).
@@ -33,7 +33,7 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
  *
  * @author Bjoern Lohrmann
  */
-public class SequenceElement implements	IOReadableWritable {
+public class SequenceElement implements Serializable {
 
 	private JobVertexID sourceVertexID;
 	private JobVertexID targetVertexID;
@@ -117,35 +117,38 @@ public class SequenceElement implements	IOReadableWritable {
 		return this.indexInSequence;
 	}
 
-	@Override
-	public void write(DataOutputView out) throws IOException {
+	private void writeObject(ObjectOutputStream out) throws IOException {
 		out.writeBoolean(this.isVertex);
+
 		if (this.isVertex) {
 			out.writeUTF(samplingStrategy.toString());
 		}
-		this.sourceVertexID.write(out);
+
+		out.writeObject(this.sourceVertexID);
+
 		if (!this.isVertex) {
-			this.targetVertexID.write(out);
+			out.writeObject(this.targetVertexID);
 		}
+
 		out.writeInt(this.inputGateIndex);
 		out.writeInt(this.outputGateIndex);
 		out.writeInt(this.indexInSequence);
 		out.writeUTF(this.name);
 	}
 
-	@Override
-	public void read(DataInputView in) throws IOException {
+	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
 		this.isVertex = in.readBoolean();
+
 		if (this.isVertex) {
 			this.samplingStrategy = SamplingStrategy.valueOf(in.readUTF());
 		}
 
-		this.sourceVertexID = new JobVertexID();
-		this.sourceVertexID.read(in);
+		this.sourceVertexID = (JobVertexID) in.readObject();
+
 		if (!this.isVertex) {
-			this.targetVertexID = new JobVertexID();
-			this.targetVertexID.read(in);
+			this.targetVertexID = (JobVertexID) in.readObject();
 		}
+
 		this.inputGateIndex = in.readInt();
 		this.outputGateIndex = in.readInt();
 		this.indexInSequence = in.readInt();

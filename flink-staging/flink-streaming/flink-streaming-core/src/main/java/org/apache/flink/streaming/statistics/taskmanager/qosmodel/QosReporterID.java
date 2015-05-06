@@ -19,16 +19,11 @@
 package org.apache.flink.streaming.statistics.taskmanager.qosmodel;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.flink.core.io.IOReadableWritable;
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.Serializable;
 
 /**
@@ -37,22 +32,14 @@ import java.io.Serializable;
  *
  * @author Bjoern Lohrmann, Sascha Wolke
  */
-public abstract class QosReporterID implements IOReadableWritable, Serializable {
+public abstract class QosReporterID implements Serializable {
 
 	public static class Vertex extends QosReporterID {
 
-// TODO: use execution attempt id?
-// 		private ExecutionAttemptID attemptID;
-		private int subTaskIndex;
-		private IntermediateDataSetID inputDataSetID;
-		private IntermediateDataSetID outputDataSetID;
-		private int precomputedHash;
-
-		/**
-		 * Public constructor only for deserialization.
-		 */
-		public Vertex() {
-		}
+		private final int subTaskIndex;
+		private final IntermediateDataSetID inputDataSetID;
+		private final IntermediateDataSetID outputDataSetID;
+		private final int precomputedHash;
 
 		/**
 		 * Creates a new Qos reporter ID. Initializes Vertex.
@@ -73,7 +60,7 @@ public abstract class QosReporterID implements IOReadableWritable, Serializable 
 			this.subTaskIndex = subTaskIndex;
 			this.inputDataSetID = inputDataSetID;
 			this.outputDataSetID = outputDataSetID;
-			this.precomputeHash();
+			this.precomputedHash = precomputeHash();
 		}
 
 		public int getSubTaskIndex() {
@@ -96,67 +83,23 @@ public abstract class QosReporterID implements IOReadableWritable, Serializable 
 			return this.inputDataSetID != null;
 		}
 
-		private void precomputeHash() {
+		private int precomputeHash() {
 			// TODO: is this safe?
-			this.precomputedHash = this.subTaskIndex;
+			int hash = this.subTaskIndex;
 
 			if (this.inputDataSetID != null) {
-				this.precomputedHash ^= this.inputDataSetID.hashCode();
+				hash ^= this.inputDataSetID.hashCode();
 			}
 
 			if (this.outputDataSetID != null) {
-				this.precomputedHash ^= this.outputDataSetID.hashCode();
-			}
-		}
-
-		private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-			in.defaultReadObject();
-			precomputeHash();
-		}
-
-		@Override
-		public void write(DataOutputView out) throws IOException {
-			out.writeInt(this.subTaskIndex);
-
-			byte dummyIndicatorByte = 0;
-			if (this.inputDataSetID != null) {
-				dummyIndicatorByte |= 0x01;
+				hash ^= this.outputDataSetID.hashCode();
 			}
 
-			if (this.outputDataSetID != null) {
-				dummyIndicatorByte |= 0x02;
-			}
-
-			out.writeByte(dummyIndicatorByte);
-
-			if (this.inputDataSetID != null) {
-				this.inputDataSetID.write(out);
-			}
-
-			if (this.outputDataSetID != null) {
-				this.outputDataSetID.write(out);
-			}
+			return hash;
 		}
 
 		public boolean isDummy() {
 			return this.inputDataSetID == null || this.outputDataSetID == null;
-		}
-
-		@Override
-		public void read(DataInputView in) throws IOException {
-			this.subTaskIndex = in.readInt();
-
-			byte dummyIndicatorByte = in.readByte();
-
-			if ((dummyIndicatorByte & 0x01) == 1) {
-				this.inputDataSetID = new IntermediateDataSetID();
-				this.inputDataSetID.read(in);
-			}
-
-			if ((dummyIndicatorByte & 0x02) == 2) {
-				this.outputDataSetID = new IntermediateDataSetID();
-				this.outputDataSetID.read(in);
-			}
 		}
 
 		@Override
@@ -194,15 +137,9 @@ public abstract class QosReporterID implements IOReadableWritable, Serializable 
 
 	public static class Edge extends QosReporterID {
 
-		private IntermediateResultPartitionID intermediateResultPartitionID;
+		private final IntermediateResultPartitionID intermediateResultPartitionID;
 
-		private int consumedSubpartitionIndex;
-
-		/**
-		 * Public constructor only for deserialization.
-		 */
-		public Edge() {
-		}
+		private final int consumedSubpartitionIndex;
 
 		public Edge(IntermediateResultPartitionID intermediateResultPartitionID, int consumedSubpartitionIndex) {
 			this.intermediateResultPartitionID = intermediateResultPartitionID;
@@ -215,19 +152,6 @@ public abstract class QosReporterID implements IOReadableWritable, Serializable 
 
 		public int getConsumedSubpartitionIndex() {
 			return consumedSubpartitionIndex;
-		}
-
-		@Override
-		public void write(DataOutputView out) throws IOException {
-			this.intermediateResultPartitionID.write(out);
-			out.writeInt(this.consumedSubpartitionIndex);
-		}
-
-		@Override
-		public void read(DataInputView in) throws IOException {
-			this.intermediateResultPartitionID = new IntermediateResultPartitionID();
-			this.intermediateResultPartitionID.read(in);
-			this.consumedSubpartitionIndex = in.readInt();
 		}
 
 		@Override

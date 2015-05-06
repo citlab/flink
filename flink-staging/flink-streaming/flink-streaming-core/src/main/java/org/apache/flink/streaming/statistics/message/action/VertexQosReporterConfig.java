@@ -18,8 +18,6 @@
 
 package org.apache.flink.streaming.statistics.message.action;
 
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.jobgraph.AbstractJobVertex;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -28,6 +26,8 @@ import org.apache.flink.streaming.statistics.SequenceElement;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGate;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
 /**
  * Describes a Qos reporter role for a vertex (task).
@@ -38,8 +38,6 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 
 	private JobVertexID groupVertexID;
 
-//	private ExecutionAttemptID executionAttemptID;
-
 	private int inputGateIndex;
 
 	private IntermediateDataSetID inputDataSetID;
@@ -49,8 +47,6 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 	private IntermediateDataSetID outputDataSetID;
 
 	private SamplingStrategy samplingStrategy;
-
-//	private int subTaskIndex;
 
 	private String name;
 
@@ -69,11 +65,9 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 	 *            versa).
 	 */
 	public VertexQosReporterConfig(JobVertexID groupVertexID,
-								   // ExecutionAttemptID executionAttemptID,
 			int inputGateIndex, IntermediateDataSetID inputDataSetID,
 			int outputGateIndex, IntermediateDataSetID outputDataSetID,
 			SamplingStrategy samplingStrategy,
-//			int subTaskIndex,
 			String name) {
 
 		if (inputGateIndex == -1 ^ inputDataSetID == null || outputGateIndex == -1 ^ outputDataSetID == null) {
@@ -83,27 +77,17 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 		}
 
 		this.groupVertexID = groupVertexID;
-//		this.executionAttemptID = executionAttemptID;
 		this.inputGateIndex = inputGateIndex;
 		this.inputDataSetID= inputDataSetID;
 		this.outputGateIndex = outputGateIndex;
 		this.outputDataSetID = outputDataSetID;
 		this.samplingStrategy = samplingStrategy;
-//		this.subTaskIndex = subTaskIndex;
 		this.name = name;
 	}
-
-//	public boolean isDummy() {
-//		return this.getReporterID().isDummy();
-//	}
 
 	public JobVertexID getGroupVertexID() {
 		return this.groupVertexID;
 	}
-
-//	public ExecutionAttemptID getExecutionAttemptID() {
-//		return executionAttemptID;
-//	}
 
 	public int getInputGateIndex() {
 		return this.inputGateIndex;
@@ -125,19 +109,10 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 		return samplingStrategy;
 	}
 
-//	public int getSubTaskIndex() {
-//		return subTaskIndex;
-//	}
-
 	public String getName() {
 		return this.name;
 	}
 
-//	public QosVertex toQosVertex() {
-//		return new QosVertex(this.vertexID, this.name, this.reporterInstance,
-//				this.memberIndex);
-//	}
-//
 	public QosGate toInputGate() {
 		return new QosGate(this.inputDataSetID, this.inputGateIndex);
 	}
@@ -146,53 +121,43 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 		return new QosGate(this.outputDataSetID, this.outputGateIndex);
 	}
 
-	@Override
-	public void write(DataOutputView out) throws IOException {
-		this.groupVertexID.write(out);
-//		this.executionAttemptID.write(out);
+	private void writeObject(ObjectOutputStream out) throws IOException {
+		out.writeObject(this.groupVertexID);
 
 		out.writeInt(this.inputGateIndex);
 		if (this.inputGateIndex != -1) {
-			this.inputDataSetID.write(out);
+			out.writeObject(this.inputDataSetID);
 		}
 
 		out.writeInt(this.outputGateIndex);
 		if (this.outputGateIndex != -1) {
-			this.outputDataSetID.write(out);
+			out.writeObject(this.outputDataSetID);
 		}
 
 //		if (!this.isDummy()) {
 			out.writeUTF(samplingStrategy.toString());
 //		}
 
-//		out.writeInt(this.subTaskIndex);
 		out.writeUTF(this.name);
 	}
 
-	@Override
-	public void read(DataInputView in) throws IOException {
-		this.groupVertexID = new JobVertexID();
-		this.groupVertexID.read(in);
-//		this.executionAttemptID = new ExecutionAttemptID();
-//		this.executionAttemptID.read(in);
+	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+		this.groupVertexID = (JobVertexID) in.readObject();
 
 		this.inputGateIndex = in.readInt();
 		if (this.inputGateIndex != -1) {
-			this.inputDataSetID = new IntermediateDataSetID();
-			this.inputDataSetID.read(in);
+			this.inputDataSetID = (IntermediateDataSetID) in.readObject();
 		}
 
 		this.outputGateIndex = in.readInt();
 		if (this.outputGateIndex != -1) {
-			this.outputDataSetID = new IntermediateDataSetID();
-			this.outputDataSetID.read(in);
+			this.outputDataSetID = (IntermediateDataSetID) in.readObject();
 		}
 
 //		if (!this.isDummy()) {
 			this.samplingStrategy = SamplingStrategy.valueOf(in.readUTF());
 //		}
 
-//		this.subTaskIndex = in.readInt();
 		this.name = in.readUTF();
 	}
 

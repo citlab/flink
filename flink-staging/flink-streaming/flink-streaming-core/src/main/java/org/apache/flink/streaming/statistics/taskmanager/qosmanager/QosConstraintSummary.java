@@ -18,19 +18,15 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmanager;
 
-import java.io.IOException;
-import java.util.LinkedList;
-import java.util.List;
-
-import org.apache.flink.core.io.IOReadableWritable;
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
 import org.apache.flink.streaming.statistics.JobGraphSequence;
 import org.apache.flink.streaming.statistics.LatencyConstraintID;
 import org.apache.flink.streaming.statistics.SequenceElement;
 
-public class QosConstraintSummary implements IOReadableWritable {
+import java.util.LinkedList;
+import java.util.List;
+
+public class QosConstraintSummary {
 
 	private QosGroupElementSummary[] groupElemSummaries;
 
@@ -113,36 +109,5 @@ public class QosConstraintSummary implements IOReadableWritable {
 			}
 		}
 		return true;
-	}
-	
-	@Override
-	public void write(DataOutputView out) throws IOException {
-		this.violationReport.write(out);
-
-		out.writeInt(getSequenceLength());
-		out.writeBoolean(doesSequenceStartWithVertex());
-		for (QosGroupElementSummary groupElem : groupElemSummaries) {
-			groupElem.write(out);
-		}
-	}
-
-	@Override
-	public void read(DataInputView in) throws IOException {
-		violationReport = new QosConstraintViolationReport();
-		violationReport.read(in);
-
-		int sequenceLength = in.readInt();
-		boolean nextIsVertex = in.readBoolean();
-		groupElemSummaries = new QosGroupElementSummary[sequenceLength];
-
-		for (int i = 0; i < sequenceLength; i++) {
-			if (nextIsVertex) {
-				groupElemSummaries[i] = new QosGroupVertexSummary();
-			} else {
-				groupElemSummaries[i] = new QosGroupEdgeSummary();
-			}
-			groupElemSummaries[i].read(in);
-			nextIsVertex = !nextIsVertex;
-		}
 	}
 }

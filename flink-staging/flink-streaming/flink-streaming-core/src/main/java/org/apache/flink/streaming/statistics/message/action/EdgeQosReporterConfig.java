@@ -18,11 +18,7 @@
 
 package org.apache.flink.streaming.statistics.message.action;
 
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
-
-import java.io.IOException;
 
 /**
  * Describes a Qos reporter role for an edge.
@@ -30,10 +26,6 @@ import java.io.IOException;
  * @author Bjoern Lohrmann, Sascha Wolke
  */
 public class EdgeQosReporterConfig implements QosReporterConfig {
-
-//	private IntermediateResultPartitionID intermediateResultPartitionID;
-
-//	private int consumedSubpartitionIndex;
 
 	private IntermediateDataSetID intermediateDataSetID;
 
@@ -90,23 +82,6 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 
 	public String getName() {
 		return this.name;
-	}
-
-	@Override
-	public void write(DataOutputView out) throws IOException {
-		this.intermediateDataSetID.write(out);
-		out.writeInt(this.outputGateIndex);
-		out.writeInt(this.inputGateIndex);
-		out.writeUTF(this.name);
-	}
-
-	@Override
-	public void read(DataInputView in) throws IOException {
-		this.intermediateDataSetID = new IntermediateDataSetID();
-		this.intermediateDataSetID.read(in);
-		this.outputGateIndex = in.readInt();
-		this.inputGateIndex = in.readInt();
-		this.name = in.readUTF();
 	}
 
 	@Override

@@ -18,11 +18,7 @@
 
 package org.apache.flink.streaming.statistics;
 
-import org.apache.flink.core.io.IOReadableWritable;
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
-
-import java.io.IOException;
+import java.io.Serializable;
 
 /**
  * This class can be used to define latency constraints on a job graph. A
@@ -40,7 +36,7 @@ import java.io.IOException;
  *
  * @author Bjoern Lohrmann
   */
-public class JobGraphLatencyConstraint implements IOReadableWritable {
+public class JobGraphLatencyConstraint implements Serializable {
 
 	private static int nextConstraintIndex = 0;
 
@@ -126,25 +122,5 @@ public class JobGraphLatencyConstraint implements IOReadableWritable {
 	@Override
 	public int hashCode() {
 		return this.constraintID.hashCode();
-	}
-
-	@Override
-	public void write(DataOutputView out) throws IOException {
-		this.constraintID.write(out);
-		out.writeInt(index);
-		this.sequence.write(out);
-		out.writeLong(this.latencyConstraintInMillis);
-		out.writeUTF(this.name);
-	}
-
-	@Override
-	public void read(DataInputView in) throws IOException {
-		this.constraintID = new LatencyConstraintID();
-		this.constraintID.read(in);
-		this.index = in.readInt();
-		this.sequence = new JobGraphSequence();
-		this.sequence.read(in);
-		this.latencyConstraintInMillis = in.readLong();
-		this.name = in.readUTF();
 	}
 }

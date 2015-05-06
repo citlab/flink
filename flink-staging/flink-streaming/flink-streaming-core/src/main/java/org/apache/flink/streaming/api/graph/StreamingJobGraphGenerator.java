@@ -48,7 +48,6 @@ import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosReportFo
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -419,7 +418,7 @@ public class StreamingJobGraphGenerator {
 			try {
 				String name = constraint.getName(seq.getFirstVertex().getName(), seq.getLastVertex().getName());
 				ConstraintUtil.defineLatencyConstraint(seq, constraint.getLatencyConstraintInMillis(), jobGraph, name);
-			} catch(IOException e) {
+			} catch(Exception e) {
 				throw new RuntimeException("LatencyConstraint serialization failed.");
 			}
 		}

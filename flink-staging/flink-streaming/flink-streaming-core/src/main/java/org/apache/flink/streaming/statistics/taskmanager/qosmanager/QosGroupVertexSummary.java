@@ -18,10 +18,6 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmanager;
 
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.DataOutputView;
-
-import java.io.IOException;
 import java.util.List;
 
 public class QosGroupVertexSummary implements QosGroupElementSummary {
@@ -89,19 +85,5 @@ public class QosGroupVertexSummary implements QosGroupElementSummary {
 	@Override
 	public boolean hasData() {
 		return activeVertices > 0;
-	}
-
-	@Override
-	public void write(DataOutputView out) throws IOException {
-		out.writeInt(activeVertices);
-		out.writeDouble(meanVertexLatency);
-		out.writeDouble(meanVertexLatencyCV);
-	}
-
-	@Override
-	public void read(DataInputView in) throws IOException {
-		activeVertices = in.readInt();
-		meanVertexLatency = in.readDouble();
-		meanVertexLatencyCV = in.readDouble();
 	}
 }

@@ -20,9 +20,7 @@ package org.apache.flink.streaming.statistics.taskmanager.qosmanager;
 
 import java.util.List;
 
-import org.apache.flink.core.io.IOReadableWritable;
-
-public interface QosGroupElementSummary extends IOReadableWritable {
+public interface QosGroupElementSummary {
 	
 	public boolean isVertex();
 	
