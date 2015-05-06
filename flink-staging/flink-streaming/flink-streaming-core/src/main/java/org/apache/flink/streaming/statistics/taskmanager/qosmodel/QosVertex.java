@@ -18,12 +18,16 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmodel;
 
-import java.util.ArrayList;
-
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
-import org.apache.flink.runtime.instance.InstanceConnectionInfo;
+import org.apache.flink.runtime.instance.Instance;
+import org.apache.flink.streaming.statistics.message.action.QosReporterConfig;
+import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
+import org.apache.flink.streaming.statistics.message.qosreport.AbstractQosReportRecord;
+import org.apache.flink.streaming.statistics.message.qosreport.VertexStatistics;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGate.GateType;
+
+import java.util.ArrayList;
 
 /**
  * This class models a Qos vertex as part of a Qos graph. It is equivalent to an
@@ -35,46 +39,34 @@ import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGate.GateTy
  * fact, that the Qos graph itself only contains those group vertices and group
  * edges from the execution graph, that are covered by a constraint.
  *
- * @author Bjoern Lohrmann
+ * Statistics from one task manager with different {@link QosReporterID.Vertex} are collected
+ * in its {@ling qosData}.
+ *
+ * This data class residents on job manager side and is never transferred.
+ *
+ * @author Bjoern Lohrmann, Sascha Wolke
  *
  */
 public class QosVertex implements QosGraphMember {
 
-	private ExecutionAttemptID executionAttemptID;
+	private ExecutionVertex executionVertex;
 
 	private QosGroupVertex groupVertex;
-
-	private InstanceConnectionInfo executingInstance;
 
 	private ArrayList<QosGate> inputGates;
 
 	private ArrayList<QosGate> outputGates;
 
-	private int memberIndex;
+	private VertexQosData qosData;
 
-	private String name;
-
-	/**
-	 * Only for use on the task manager side. Will not be transferred.
-	 */
-	private transient VertexQosData qosData;
-
-	public QosVertex(ExecutionAttemptID executionID, String name, InstanceConnectionInfo executingInstance, int memberIndex) {
-		this.executionAttemptID = executionID;
-		this.name = name;
-		this.executingInstance = executingInstance;
+	public QosVertex(ExecutionVertex executionVertex) {
+		this.executionVertex = executionVertex;
 		this.inputGates = new ArrayList<QosGate>();
 		this.outputGates = new ArrayList<QosGate>();
-		this.memberIndex = memberIndex;
-	}
-
-	public QosVertex(String name, int memberIndex) {
-		this.name = name;
-		this.memberIndex = memberIndex;
 	}
 
 	public ExecutionAttemptID getID() {
-		return this.executionAttemptID;
+		return this.executionVertex.getCurrentExecutionAttempt().getAttemptId();
 	}
 
 	public QosGate getInputGate(int gateIndex) {
@@ -121,10 +113,11 @@ public class QosVertex implements QosGraphMember {
 		}
 	}
 
-	public InstanceConnectionInfo getExecutingInstance() {
-		return this.executingInstance;
+	public Instance getExecutingInstance() {
+		return this.executionVertex.getCurrentAssignedResource().getInstance();
 	}
 
+	@Override
 	public VertexQosData getQosData() {
 		return this.qosData;
 	}
@@ -133,25 +126,34 @@ public class QosVertex implements QosGraphMember {
 		this.qosData = qosData;
 	}
 
+	@Override
+	public void processStatistics(QosReporterConfig reporterConfig,
+			AbstractQosReportRecord statistic, long now) {
+
+		if (reporterConfig instanceof VertexQosReporterConfig && statistic instanceof VertexStatistics) {
+			VertexQosReporterConfig vertexReporterConfig = (VertexQosReporterConfig) reporterConfig;
+			qosData.addVertexStatisticsMeasurement(
+					vertexReporterConfig.getInputGateIndex(),
+					vertexReporterConfig.getOutputGateIndex(),
+					now,
+					(VertexStatistics) statistic);
+		} else {
+			throw new RuntimeException("Unknown statistic type received: "
+					+ statistic.getClass().getSimpleName());
+		}
+	}
+
 	public String getName() {
-		return this.name;
+		return this.executionVertex.getTaskNameWithSubtaskIndex();
 	}
 
 	@Override
 	public String toString() {
-		return this.name;
-	}
-
-	public QosVertex emptyClone() {
-		return new QosVertex(this.name, this.memberIndex);
-	}
-
-	public void setMemberIndex(int memberIndex) {
-		this.memberIndex = memberIndex;
+		return getName();
 	}
 
 	public int getMemberIndex() {
-		return this.memberIndex;
+		return this.executionVertex.getParallelSubtaskIndex();
 	}
 
 	public void setGroupVertex(QosGroupVertex qosGroupVertex) {
@@ -175,15 +177,7 @@ public class QosVertex implements QosGraphMember {
 		}
 		QosVertex rhs = (QosVertex) obj;
 		return this.groupVertex.getJobVertexID().equals(rhs.groupVertex.getJobVertexID())
-				&& this.memberIndex == rhs.memberIndex;
-	}
-
-	public static QosVertex fromExecutionVertex(ExecutionVertex executionVertex) {
-		return new QosVertex(
-				executionVertex.getCurrentExecutionAttempt().getAttemptId(),
-				executionVertex.getSimpleName(),
-				executionVertex.getCurrentAssignedResourceLocation(),
-				executionVertex.getParallelSubtaskIndex());
+				&& this.getMemberIndex() == rhs.getMemberIndex();
 	}
 
 	@Override

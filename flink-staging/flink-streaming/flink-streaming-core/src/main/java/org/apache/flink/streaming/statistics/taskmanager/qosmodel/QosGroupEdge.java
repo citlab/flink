@@ -26,7 +26,6 @@ import org.apache.flink.runtime.jobgraph.DistributionPattern;
  * to an {@link org.apache.flink.runtime.jobgraph.JobEdge}.
  *
  * @author Bjoern Lohrmann
- *
  */
 public class QosGroupEdge {
 
@@ -49,8 +48,6 @@ public class QosGroupEdge {
 		this.targetVertex = targetVertex;
 		this.outputGateIndex = outputGateIndex;
 		this.inputGateIndex = inputGateIndex;
-		this.sourceVertex.setForwardEdge(this);
-		this.targetVertex.setBackwardEdge(this);
 	}
 
 	public DistributionPattern getDistributionPattern() {

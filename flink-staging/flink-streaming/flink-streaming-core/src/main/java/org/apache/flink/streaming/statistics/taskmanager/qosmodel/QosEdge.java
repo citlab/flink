@@ -18,48 +18,39 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmodel;
 
-import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
+import org.apache.flink.streaming.statistics.message.action.QosReporterConfig;
+import org.apache.flink.streaming.statistics.message.qosreport.AbstractQosReportRecord;
+import org.apache.flink.streaming.statistics.message.qosreport.EdgeLatency;
+import org.apache.flink.streaming.statistics.message.qosreport.EdgeStatistics;
 
 /**
  * This class models a Qos edge as part of a Qos graph. It is equivalent to an
  * {@link org.apache.flink.runtime.executiongraph.ExecutionEdge}.
  *
- * @author Bjoern Lohrmann
+ * One {@link QosReporterID.Edge} represents this edge.
+ * Statistics can be send from two different task managers.
+ *
+ * This data class residents on job manager side and is never transferred.
+ *
+ * @author Bjoern Lohrmann, Sascha Wolke
  *
  */
 public class QosEdge implements QosGraphMember {
 
-	private final IntermediateResultPartitionID intermediateResultPartitionID;
-
-	private final int consumedSubpartitionIndex;
+	private final QosReporterID.Edge reporterID;
 
 	private QosGate outputGate;
 
 	private QosGate inputGate;
 
-	/**
-	 * The index of this edge in the output gate's list of edges.
-	 */
-	private int outputGateEdgeIndex;
+	private EdgeQosData qosData;
 
-	/**
-	 * The index of this edge in the input gate's list of edges.
-	 */
-	private int inputGateEdgeIndex;
+	public QosEdge(QosReporterID.Edge reporterID) {
+		this.reporterID = reporterID;
+	}
 
-	/**
-	 * Only for use on the task manager side. Will not be transferred.
-	 */
-	private transient EdgeQosData qosData;
-
-	public QosEdge(IntermediateResultPartitionID intermediateResultPartitionID,
-			int consumedSubpartitionIndex,
-			int outputGateEdgeIndex, int inputGateEdgeIndex) {
-
-		this.intermediateResultPartitionID = intermediateResultPartitionID;
-		this.consumedSubpartitionIndex = consumedSubpartitionIndex;
-		this.outputGateEdgeIndex = outputGateEdgeIndex;
-		this.inputGateEdgeIndex = inputGateEdgeIndex;
+	public QosReporterID.Edge getReporterID() {
+		return reporterID;
 	}
 
 	/**
@@ -108,7 +99,11 @@ public class QosEdge implements QosGraphMember {
 	 * @return the outputGateEdgeIndex
 	 */
 	public int getOutputGateEdgeIndex() {
-		return this.outputGateEdgeIndex;
+		if (this.outputGate != null) {
+			return this.outputGate.getGateIndex();
+		} else {
+			return -1;
+		}
 	}
 
 	/**
@@ -117,17 +112,14 @@ public class QosEdge implements QosGraphMember {
 	 * @return the inputGateEdgeIndex
 	 */
 	public int getInputGateEdgeIndex() {
-		return this.inputGateEdgeIndex;
+		if (this.inputGate != null) {
+			return this.inputGate.getGateIndex();
+		} else {
+			return -1;
+		}
 	}
 
-	public IntermediateResultPartitionID getIntermediateResultPartitionID() {
-		return intermediateResultPartitionID;
-	}
-
-	public int getConsumedSubpartitionIndex() {
-		return consumedSubpartitionIndex;
-	}
-
+	@Override
 	public EdgeQosData getQosData() {
 		return this.qosData;
 	}
@@ -137,16 +129,25 @@ public class QosEdge implements QosGraphMember {
 	}
 
 	@Override
+	public void processStatistics(QosReporterConfig reporterConfig,
+			AbstractQosReportRecord statistic, long now) {
+
+		if (statistic instanceof EdgeStatistics) {
+			this.qosData.addOutputChannelStatisticsMeasurement(now, (EdgeStatistics) statistic);
+
+		} else if (statistic instanceof EdgeLatency) {
+			this.qosData.addLatencyMeasurement(now, ((EdgeLatency)statistic).getEdgeLatency());
+
+		} else {
+			throw new RuntimeException("Unknown statistic type received: "
+					+ statistic.getClass().getSimpleName());
+		}
+	}
+
+	@Override
 	public String toString() {
 		return String.format("%s->%s", this.getOutputGate().getVertex()
 				.getName(), this.getInputGate().getVertex().getName());
-	}
-
-	public QosEdge cloneWithoutGates() {
-		QosEdge clone = new QosEdge(this.intermediateResultPartitionID,
-				this.consumedSubpartitionIndex,
-				this.outputGateEdgeIndex, this.inputGateEdgeIndex);
-		return clone;
 	}
 
 	@Override
@@ -162,8 +163,7 @@ public class QosEdge implements QosGraphMember {
 		}
 
 		QosEdge other = (QosEdge) obj;
-		return this.intermediateResultPartitionID.equals(other.intermediateResultPartitionID)
-				&& this.consumedSubpartitionIndex == other.consumedSubpartitionIndex;
+		return this.reporterID.equals(other.reporterID);
 	}
 
 	@Override

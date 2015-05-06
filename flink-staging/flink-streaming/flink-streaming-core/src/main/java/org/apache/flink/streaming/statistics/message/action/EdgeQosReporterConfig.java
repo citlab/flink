@@ -21,8 +21,6 @@ package org.apache.flink.streaming.statistics.message.action;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
-import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
-import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosEdge;
 
 import java.io.IOException;
 
@@ -118,7 +116,19 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 				+ ", dataSet: " + this.intermediateDataSetID + ")";
 	}
 
-	public QosEdge toQosEdge(IntermediateResultPartitionID partitionID, int subpartitionIndex) {
-		return new QosEdge(partitionID, subpartitionIndex, this.outputGateIndex, this.inputGateIndex);
+	public static EdgeQosReporterConfig sourceTaskConfig(
+			IntermediateDataSetID intermediateDataSetID,
+			int outputGateIndex, int inputGateIndex, String name) {
+
+		return new EdgeQosReporterConfig(intermediateDataSetID,
+				outputGateIndex, inputGateIndex, Side.SOURCE, name);
+	}
+
+	public static EdgeQosReporterConfig targetTaskConfig(
+			IntermediateDataSetID intermediateDataSetID,
+			int outputGateIndex, int inputGateIndex, String name) {
+
+		return new EdgeQosReporterConfig(intermediateDataSetID,
+				outputGateIndex, inputGateIndex, Side.TARGET, name);
 	}
 }

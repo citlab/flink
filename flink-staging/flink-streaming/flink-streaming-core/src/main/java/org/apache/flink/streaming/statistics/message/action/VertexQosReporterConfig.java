@@ -25,6 +25,7 @@ import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.streaming.statistics.SamplingStrategy;
 import org.apache.flink.streaming.statistics.SequenceElement;
+import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGate;
 
 import java.io.IOException;
 
@@ -137,13 +138,13 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 //				this.memberIndex);
 //	}
 //
-//	public QosGate toInputGate() {
-//		return new QosGate(this.inputGateID, this.inputGateIndex);
-//	}
-//
-//	public QosGate toOutputGate() {
-//		return new QosGate(this.outputGateID, this.outputGateIndex);
-//	}
+	public QosGate toInputGate() {
+		return new QosGate(this.inputDataSetID, this.inputGateIndex);
+	}
+
+	public QosGate toOutputGate() {
+		return new QosGate(this.outputDataSetID, this.outputGateIndex);
+	}
 
 	@Override
 	public void write(DataOutputView out) throws IOException {

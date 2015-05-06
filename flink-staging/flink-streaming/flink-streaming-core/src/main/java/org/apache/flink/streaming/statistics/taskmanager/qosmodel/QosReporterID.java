@@ -19,7 +19,6 @@
 package org.apache.flink.streaming.statistics.taskmanager.qosmodel;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
-
 import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
@@ -268,6 +267,10 @@ public abstract class QosReporterID implements IOReadableWritable, Serializable 
 	public static QosReporterID.Vertex forVertex(StreamTask task, VertexQosReporterConfig config) {
 		return new Vertex(task.getIndexInSubtaskGroup(),
 				config.getInputDataSetID(), config.getOutputDataSetID());
+	}
+
+	public static QosReporterID.Vertex forVertex(int subTaskIndex, VertexQosReporterConfig config) {
+		return new Vertex(subTaskIndex,	config.getInputDataSetID(), config.getOutputDataSetID());
 	}
 
 	public static QosReporterID.Edge forEdge(
