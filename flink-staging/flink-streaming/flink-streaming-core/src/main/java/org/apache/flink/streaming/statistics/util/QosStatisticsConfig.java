@@ -50,7 +50,7 @@ public class QosStatisticsConfig {
 	 */
 	public static final String QOS_STAT_LOGFILE_PATTERN_KEY = "streaming.qosmanager.logging.qos_statistics_filepattern";
 
-	public static final String DEFAULT_QOS_STAT_LOGFILE_PATTERN = "/tmp/qos_statistics_%s";
+	public static final String DEFAULT_QOS_STAT_LOGFILE_PATTERN = "/tmp/qos_statistics_%s_%s";
 
 	/**
 	 * Name of the configuration entry which defines the CPU statistics log file
@@ -58,7 +58,7 @@ public class QosStatisticsConfig {
 	 */
 	private static final String CPU_STAT_LOGFILE_PATTERN_KEY = "streaming.qosmanager.logging.cpu_statistics_filepattern";
 
-	private static final String DEFAULT_CPU_STAT_LOGFILE_PATTERN = "/tmp/cpu_statistics_%s";
+	private static final String DEFAULT_CPU_STAT_LOGFILE_PATTERN = "/tmp/cpu_statistics_%s_%s";
 
 	/**
 	 * Name of the configuration entry which defines the time interval for QoS

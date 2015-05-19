@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmanager;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
 import org.apache.flink.streaming.statistics.JobGraphSequence;
 import org.apache.flink.streaming.statistics.SequenceElement;
@@ -37,13 +38,12 @@ public class QosLogger extends AbstractQosLogger {
 
 	private BufferedWriter writer;
 
-
-	public QosLogger(JobGraphLatencyConstraint constraint, long loggingInterval) throws IOException {
+	public QosLogger(JobID jobId, JobGraphLatencyConstraint constraint, long loggingInterval) throws IOException {
 		super(loggingInterval);
 
 		String logFile = QosStatisticsConfig.getQosStatisticsLogfilePattern();
 		if (logFile.contains("%s")) {
-			logFile = String.format(logFile, Integer.toString(constraint.getIndex()));
+			logFile = String.format(logFile, jobId, Integer.toString(constraint.getIndex()));
 		}
 		this.writer = new BufferedWriter(new FileWriter(logFile));
 		this.writeHeaders(constraint.getSequence());
