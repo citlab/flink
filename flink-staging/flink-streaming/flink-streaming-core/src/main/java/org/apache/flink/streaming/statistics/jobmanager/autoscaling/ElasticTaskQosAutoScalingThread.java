@@ -26,8 +26,6 @@ import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
 import org.apache.flink.streaming.statistics.LatencyConstraintID;
 import org.apache.flink.streaming.statistics.jobmanager.autoscaling.optimization.ScalingActuator;
 import org.apache.flink.streaming.statistics.message.AbstractQosMessage;
-import org.apache.flink.streaming.statistics.message.AbstractSerializableQosMessage;
-import org.apache.flink.streaming.statistics.message.QosManagerConstraintSummaries;
 import org.apache.flink.streaming.statistics.message.TaskCpuLoadChange;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosConstraintSummary;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosLogger;
@@ -52,7 +50,7 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ElasticTaskQosAutoScalingThread.class);
 
-	private final LinkedBlockingQueue<AbstractSerializableQosMessage> qosMessages = new LinkedBlockingQueue<AbstractSerializableQosMessage>();
+	private final LinkedBlockingQueue<AbstractQosMessage> qosMessages = new LinkedBlockingQueue<AbstractQosMessage>();
 
 	private long timeOfLastScaling;
 
@@ -297,20 +295,15 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 	private void processMessages() {
 		while (!qosMessages.isEmpty()) {
 			AbstractQosMessage nextMessage = qosMessages.poll();
+
 			if (nextMessage instanceof TaskCpuLoadChange) {
 				handleTaskLoadStateChange((TaskCpuLoadChange) nextMessage);
-			} else if (nextMessage instanceof QosManagerConstraintSummaries) {
-				handleQosManagerConstraintSummaries((QosManagerConstraintSummaries) nextMessage);
+
+			} else if (nextMessage instanceof  QosConstraintSummary) {
+				QosConstraintSummary constraintSummary = (QosConstraintSummary) nextMessage;
+				LatencyConstraintID constraintID = constraintSummary.getLatencyConstraintID();
+				aggregators.get(constraintID).add(constraintSummary);
 			}
-		}
-	}
-
-	private void handleQosManagerConstraintSummaries(
-			QosManagerConstraintSummaries nextMessage) {
-
-		for (QosConstraintSummary constraintSummary : nextMessage.getConstraintSummaries()) {
-			LatencyConstraintID constraintID = constraintSummary.getLatencyConstraintID();
-			aggregators.get(constraintID).add(constraintSummary);
 		}
 	}
 
@@ -318,7 +311,7 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 		this.taskCpuLoads.put(msg.getAttemptID(), msg);
 	}
 
-	public void enqueueMessage(AbstractSerializableQosMessage message) {
+	public void enqueueMessage(AbstractQosMessage message) {
 		this.qosMessages.add(message);
 	}
 

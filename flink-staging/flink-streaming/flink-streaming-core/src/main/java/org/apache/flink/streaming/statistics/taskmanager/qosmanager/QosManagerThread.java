@@ -159,8 +159,10 @@ public class QosManagerThread extends Thread {
 		if(constraintSummaries == null) {
 			constraintSummaries = createEmptyConstraintSummaries();
 		}
-		
-		sendConstraintSummariesToJm(constraintSummaries, beginAdjustTime);
+
+		for (QosConstraintSummary summary : constraintSummaries) {
+			this.autoScalingThread.enqueueMessage(summary);
+		}
 
 		long now = System.currentTimeMillis();
 		stats.logAndReset(qosModel.getState());
@@ -197,15 +199,6 @@ public class QosManagerThread extends Thread {
 		while (this.timeOfNextAdjustment <= now) {
 			this.timeOfNextAdjustment += this.adjustmentInterval;
 		}
-	}
-
-	private void sendConstraintSummariesToJm(
-			List<QosConstraintSummary> constraintSummaries, long timestamp)
-			throws InterruptedException {
-
-		this.autoScalingThread.enqueueMessage(
-			new QosManagerConstraintSummaries(timestamp, constraintSummaries)
-		);
 	}
 
 	private void cleanUp() {
