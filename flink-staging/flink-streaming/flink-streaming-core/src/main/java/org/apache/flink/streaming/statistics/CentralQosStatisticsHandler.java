@@ -23,6 +23,7 @@ import org.apache.flink.runtime.messages.ExecutionGraphMessages.ExecutionStateCh
 import org.apache.flink.runtime.messages.ExecutionGraphMessages.JobStatusChanged;
 import org.apache.flink.runtime.statistics.AbstractCentralStatisticsHandler;
 import org.apache.flink.runtime.statistics.CustomStatistic;
+import org.apache.flink.streaming.statistics.jobmanager.autoscaling.ElasticTaskQosAutoScalingThread;
 import org.apache.flink.streaming.statistics.message.AbstractQosMessage;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosManagerThread;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosModel;
@@ -39,6 +40,7 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 
 	private QosGraph qosGraph;
 	private QosModel qosModel;
+	private ElasticTaskQosAutoScalingThread autoScalingThread;
 	private QosManagerThread qosManagerThread;
 
 	@Override
@@ -49,10 +51,12 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 
 		this.qosGraph = QosGraph.buildQosGraphFromJobConfig(executionGraph);
 		this.qosModel = new QosModel(this.qosGraph);
-		this.qosManagerThread = new QosManagerThread(jobID, this.qosModel);
+		this.autoScalingThread = new ElasticTaskQosAutoScalingThread(executionGraph, this.qosGraph);
+		this.autoScalingThread.start();
+		this.qosManagerThread = new QosManagerThread(jobID, this.qosModel, this.autoScalingThread);
 		this.qosManagerThread.start();
 
-		// TODO: start autoscaling thread (see QosSetupManager)
+		// TODO: merge auto scaling with manager thread (see QosSetupManager)
 
 		LOG.warn("New QoS statistics controller initialized!");
 	}
