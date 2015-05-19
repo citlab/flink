@@ -56,8 +56,11 @@ public enum ExecutionState {
 	
 	CANCELED,
 	
-	FAILED;
+	FAILED,
 
+	SUSPENDING,
+
+	SUSPENDED;
 
 	public boolean isTerminal() {
 		return this == FINISHED || this == CANCELED || this == FAILED;

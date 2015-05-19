@@ -70,7 +70,15 @@ public class ExecutionJobVertex implements Serializable {
 	private final boolean[] finishedSubtasks;
 			
 	private volatile int numSubtasksInFinalState;
-	
+
+	private volatile int minElasticNumberOfRunningSubtasks = -1;
+
+	private volatile int maxElasticNumberOfRunningSubtasks = -1;
+
+	private volatile int initialElasticNumberOfRunningSubtasks = -1;
+
+	private volatile int currentElasticNumberOfRunningSubtasks = 0;
+
 	private final SlotSharingGroup slotSharingGroup;
 	
 	private final CoLocationGroup coLocationGroup;
@@ -591,5 +599,42 @@ public class ExecutionJobVertex implements Serializable {
 				return inputSplitsPerSubtask[taskId].remove(inputSplitsPerSubtask[taskId].size() - 1);
 			}
 		}
+	}
+
+	public void setElasticNumberOfRunningSubtasks(int min, int max, int initial) {
+		this.minElasticNumberOfRunningSubtasks = min;
+		this.maxElasticNumberOfRunningSubtasks = max;
+		this.initialElasticNumberOfRunningSubtasks = initial;
+	}
+
+	public int getMinElasticNumberOfRunningSubtasks() {
+		return minElasticNumberOfRunningSubtasks;
+	}
+
+	public int getMaxElasticNumberOfRunningSubtasks() {
+		return maxElasticNumberOfRunningSubtasks;
+	}
+
+	public int getInitialElasticNumberOfRunningSubtasks() {
+		return initialElasticNumberOfRunningSubtasks;
+	}
+
+	public int getCurrentElasticNumberOfRunningSubtasks() {
+		return currentElasticNumberOfRunningSubtasks;
+	}
+
+	public void setCurrentElasticNumberOfRunningSubtasks(int current) {
+		this.currentElasticNumberOfRunningSubtasks = current;
+	}
+
+	public boolean hasElasticNumberOfRunningSubtasks() {
+		return this.minElasticNumberOfRunningSubtasks != -1;
+	}
+
+	public int getNumberOfRunningSubstasks() {
+		if (hasElasticNumberOfRunningSubtasks())
+			return getCurrentElasticNumberOfRunningSubtasks();
+		else
+			return getParallelism();
 	}
 }
