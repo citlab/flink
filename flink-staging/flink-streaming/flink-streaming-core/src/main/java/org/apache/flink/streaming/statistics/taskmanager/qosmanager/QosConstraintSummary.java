@@ -22,11 +22,12 @@ import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
 import org.apache.flink.streaming.statistics.JobGraphSequence;
 import org.apache.flink.streaming.statistics.LatencyConstraintID;
 import org.apache.flink.streaming.statistics.SequenceElement;
+import org.apache.flink.streaming.statistics.message.AbstractQosMessage;
 
 import java.util.LinkedList;
 import java.util.List;
 
-public class QosConstraintSummary {
+public class QosConstraintSummary extends AbstractQosMessage {
 
 	private QosGroupElementSummary[] groupElemSummaries;
 
