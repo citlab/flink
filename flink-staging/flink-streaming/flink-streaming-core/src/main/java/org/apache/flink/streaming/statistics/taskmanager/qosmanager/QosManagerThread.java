@@ -22,14 +22,13 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
-import org.apache.flink.streaming.statistics.LatencyConstraintID;
+import org.apache.flink.streaming.statistics.jobmanager.autoscaling.ElasticTaskQosAutoScalingThread;
 import org.apache.flink.streaming.statistics.message.AbstractQosMessage;
+import org.apache.flink.streaming.statistics.message.QosManagerConstraintSummaries;
 import org.apache.flink.streaming.statistics.message.qosreport.QosReport;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.buffers.OutputBufferLatencyManager;
 import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
 
-import java.io.IOException;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -52,15 +51,13 @@ public class QosManagerThread extends Thread {
 	
 	public final static long WAIT_BEFORE_FIRST_ADJUSTMENT = 10 * 1000;
 
-	private JobID jobID;
-
 	private final LinkedBlockingQueue<AbstractQosMessage> streamingDataQueue;
 
 	private OutputBufferLatencyManager oblManager;
 
 	private QosModel qosModel;
-	
-	private HashMap<LatencyConstraintID, QosLogger> qosLoggers;
+
+	private final ElasticTaskQosAutoScalingThread autoScalingThread;
 
 	private final long adjustmentInterval;
 
@@ -88,15 +85,14 @@ public class QosManagerThread extends Thread {
 
 		public void updateWithReport(QosReport qosReport) {
 			noOfEdgeLatencies += qosReport.getEdgeLatencies().size();
-			noOfVertexLatencies += qosReport.getVertexStatistics()
-					.size();
+			noOfVertexLatencies += qosReport.getVertexStatistics().size();
 			noOfEdgeStatistics += qosReport.getEdgeStatistics().size();
 		}
 	}
 
-	public QosManagerThread(JobID jobID, QosModel qosModel) {
-		this.jobID = jobID;
-		
+	public QosManagerThread(JobID jobID, QosModel qosModel,
+			ElasticTaskQosAutoScalingThread autoScalingThread) {
+
 		this.adjustmentInterval = QosStatisticsConfig.getAdjustmentIntervalMillis();
 
 		this.timeOfNextAdjustment = QosUtils.alignToInterval(
@@ -104,9 +100,9 @@ public class QosManagerThread extends Thread {
 				this.adjustmentInterval);
 		
 		this.qosModel = qosModel;
+		this.autoScalingThread = autoScalingThread;
 		this.streamingDataQueue = new LinkedBlockingQueue<AbstractQosMessage>();
 		this.oblManager = new OutputBufferLatencyManager(jobID);
-		this.qosLoggers = new HashMap<LatencyConstraintID, QosLogger>();
 		this.setName(String.format("QosManagerThread (JobID: %s)", jobID.toString()));
 	}
 
@@ -165,9 +161,6 @@ public class QosManagerThread extends Thread {
 		}
 		
 		sendConstraintSummariesToJm(constraintSummaries, beginAdjustTime);
-//		if (JobManager.getInstance() == null) {
-			logConstraintSummaries(constraintSummaries);
-//		}
 
 		long now = System.currentTimeMillis();
 		stats.logAndReset(qosModel.getState());
@@ -209,39 +202,10 @@ public class QosManagerThread extends Thread {
 	private void sendConstraintSummariesToJm(
 			List<QosConstraintSummary> constraintSummaries, long timestamp)
 			throws InterruptedException {
-		
-//		if(qosManagerID != null) {
-//			StreamMessagingThread.getInstance().sendAsynchronously(
-//					this.jmConnectionInfo,
-//					new QosManagerConstraintSummaries(jobID, qosManagerID, timestamp, constraintSummaries));
-//
-//		} else {
-//			LOG.warn("Cannot send constraint summaries because QosManagerID is unknown");
-//		}
-	}
 
-	private void logConstraintSummaries(
-			List<QosConstraintSummary> constraintSummaries) {
-
-		for (QosConstraintSummary constraintSummary : constraintSummaries) {
-			logConstraintSummary(constraintSummary);
-		}
-	}
-
-	private void logConstraintSummary(QosConstraintSummary constraintSummary) {
-		LatencyConstraintID constraintID = constraintSummary.getLatencyConstraintID();
-
-		QosLogger logger = this.qosLoggers.get(constraintID);
-
-		try {
-			if (logger == null) {
-				logger = new QosLogger(qosModel.getJobGraphLatencyConstraint(constraintID), adjustmentInterval);
-				this.qosLoggers.put(constraintID, logger);
-			}
-			logger.logSummary(constraintSummary);
-		} catch (IOException e) {
-			LOG.error("Exception in QosLogger", e);
-		}
+		this.autoScalingThread.enqueueMessage(
+			new QosManagerConstraintSummaries(timestamp, constraintSummaries)
+		);
 	}
 
 	private void cleanUp() {
