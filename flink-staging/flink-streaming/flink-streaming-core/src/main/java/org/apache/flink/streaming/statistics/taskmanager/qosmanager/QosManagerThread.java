@@ -24,7 +24,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
 import org.apache.flink.streaming.statistics.jobmanager.autoscaling.ElasticTaskQosAutoScalingThread;
 import org.apache.flink.streaming.statistics.message.AbstractQosMessage;
-import org.apache.flink.streaming.statistics.message.QosManagerConstraintSummaries;
 import org.apache.flink.streaming.statistics.message.qosreport.QosReport;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.buffers.OutputBufferLatencyManager;
 import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
@@ -39,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  * {@link Thread#start()} and can by shut down with {@link #shutdown()}. It
  * continuously processes {@link AbstractQosMessage} objects from a
  * threadsafe queue and triggers Qos actions if necessary.
- * {@link #handOffStreamingData(AbstractQosMessage)} can be used to enqueue
+ * {@link #enqueueMessage(QosReport)} can be used to enqueue
  * data.
  * 
  * @author Bjoern Lohrmann, Sascha Wolke
@@ -51,7 +50,7 @@ public class QosManagerThread extends Thread {
 	
 	public final static long WAIT_BEFORE_FIRST_ADJUSTMENT = 10 * 1000;
 
-	private final LinkedBlockingQueue<AbstractQosMessage> streamingDataQueue;
+	private final LinkedBlockingQueue<AbstractQosMessage> pendingMessages;
 
 	private OutputBufferLatencyManager oblManager;
 
@@ -72,10 +71,10 @@ public class QosManagerThread extends Thread {
 
 		public void logAndReset(QosModel.State state) {
 			LOG.debug(String.format("total messages: %d (edge: %d lats and %d stats | vertex: %d) || enqueued: %d || QosModel: %s",
-							noOfMessages, noOfEdgeLatencies,
-							noOfEdgeStatistics, noOfVertexLatencies,
-							streamingDataQueue.size(),
-							state.toString()));
+					noOfMessages, noOfEdgeLatencies,
+					noOfEdgeStatistics, noOfVertexLatencies,
+					pendingMessages.size(),
+					state.toString()));
 
 			noOfMessages = 0;
 			noOfEdgeLatencies = 0;
@@ -101,7 +100,7 @@ public class QosManagerThread extends Thread {
 		
 		this.qosModel = qosModel;
 		this.autoScalingThread = autoScalingThread;
-		this.streamingDataQueue = new LinkedBlockingQueue<AbstractQosMessage>();
+		this.pendingMessages = new LinkedBlockingQueue<AbstractQosMessage>();
 		this.oblManager = new OutputBufferLatencyManager(jobID);
 		this.setName(String.format("QosManagerThread (JobID: %s)", jobID.toString()));
 	}
@@ -114,7 +113,7 @@ public class QosManagerThread extends Thread {
 
 		try {
 			while (!interrupted()) {
-				AbstractQosMessage streamingData = this.streamingDataQueue
+				AbstractQosMessage streamingData = this.pendingMessages
 						.poll(50, TimeUnit.MILLISECONDS);
 
 				if (streamingData != null) {
@@ -202,7 +201,7 @@ public class QosManagerThread extends Thread {
 	}
 
 	private void cleanUp() {
-		this.streamingDataQueue.clear();
+		this.pendingMessages.clear();
 		this.qosModel = null;
 		this.oblManager = null;
 	}
@@ -211,7 +210,7 @@ public class QosManagerThread extends Thread {
 		this.interrupt();
 	}
 
-	public void handOffStreamingData(AbstractQosMessage data) {
-		this.streamingDataQueue.add(data);
+	public void enqueueMessage(QosReport report) {
+		this.pendingMessages.add(report);
 	}
 }

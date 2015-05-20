@@ -311,8 +311,12 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 		this.taskCpuLoads.put(msg.getAttemptID(), msg);
 	}
 
-	public void enqueueMessage(AbstractQosMessage message) {
-		this.qosMessages.add(message);
+	public void enqueueMessage(TaskCpuLoadChange change) {
+		this.qosMessages.add(change);
+	}
+
+	public void enqueueMessage(QosConstraintSummary summary) {
+		this.qosMessages.add(summary);
 	}
 
 	public void shutdown() {

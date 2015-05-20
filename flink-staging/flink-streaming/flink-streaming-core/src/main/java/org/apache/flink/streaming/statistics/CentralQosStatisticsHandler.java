@@ -25,6 +25,8 @@ import org.apache.flink.runtime.statistics.AbstractCentralStatisticsHandler;
 import org.apache.flink.runtime.statistics.CustomStatistic;
 import org.apache.flink.streaming.statistics.jobmanager.autoscaling.ElasticTaskQosAutoScalingThread;
 import org.apache.flink.streaming.statistics.message.AbstractQosMessage;
+import org.apache.flink.streaming.statistics.message.TaskCpuLoadChange;
+import org.apache.flink.streaming.statistics.message.qosreport.QosReport;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosManagerThread;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosModel;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGraph;
@@ -65,8 +67,14 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 	public void handleStatistic(CustomStatistic statistic) {
 		LOG.info("Got some statistics: {}", statistic.getClass().getSimpleName());
 
-		if (statistic instanceof AbstractQosMessage) {
-			this.qosManagerThread.handOffStreamingData((AbstractQosMessage) statistic);
+		if (statistic instanceof QosReport) {
+			this.qosManagerThread.enqueueMessage((QosReport) statistic);
+
+		} else if(statistic instanceof TaskCpuLoadChange) {
+			this.autoScalingThread.enqueueMessage((TaskCpuLoadChange) statistic);
+
+		} else {
+			LOG.error("Got unknown statistic: {}.", statistic.getClass().getSimpleName());
 		}
 	}
 
