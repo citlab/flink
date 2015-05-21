@@ -24,29 +24,22 @@ import org.apache.flink.runtime.executiongraph.ExecutionGraph
 import org.apache.flink.runtime.jobgraph.JobStatus
 import org.apache.flink.runtime.messages.ExecutionGraphMessages.{ExecutionStateChanged, JobStatusChanged}
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.FiniteDuration
-
 /**
  * The CentralStatisticsActor handles statistics on a central (job manager) point.
  *
  * @author Sascha Wolke
  */
 class CentralStatisticsActor(val executionGraph: ExecutionGraph,
-                             val reportInterval: FiniteDuration,
                              val handler: AbstractCentralStatisticsHandler)
       extends Actor with ActorLogMessages with ActorLogging {
 
   override def preStart(): Unit = {
-    handler.open(executionGraph.getJobID, executionGraph, reportInterval)
+    handler.open(executionGraph.getJobID, executionGraph)
   }
 
   override def receiveWithLogMessages: Receive = {
     case StatisticReport(jobID, statistic) =>
       handler.handleStatistic(statistic)
-
-    case ReportStatistics =>
-      handler.reportStatistics
 
     case executionState@ExecutionStateChanged(_, _, _, _, _, _, _, _, _) =>
       handler.handleExecutionStateChanged(executionState)
@@ -68,11 +61,9 @@ class CentralStatisticsActor(val executionGraph: ExecutionGraph,
 
 object CentralStatisticsActor {
   def spawn(context: ActorContext, executionGraph: ExecutionGraph,
-            reportInterval: FiniteDuration, handler: AbstractCentralStatisticsHandler): ActorRef = {
+            handler: AbstractCentralStatisticsHandler): ActorRef = {
 
-    val ref = context.system.actorOf(
-      Props(new CentralStatisticsActor(executionGraph, reportInterval, handler)))
-    context.system.scheduler.schedule(reportInterval, reportInterval, ref, ReportStatistics)
+    val ref = context.system.actorOf(Props(new CentralStatisticsActor(executionGraph, handler)))
     executionGraph.registerJobStatusListener(ref)
     executionGraph.registerExecutionListener(ref)
     ref

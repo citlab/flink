@@ -509,7 +509,6 @@ class JobManager(protected val flinkConfiguration: Configuration,
 
         if (jobGraph.isCustomStatisticsEnabled) {
           executionGraph.setCustomStatisticsEnabled(true)
-          executionGraph.setCustomStatisticsInterval(jobGraph.getCustomStatisticsInterval)
           executionGraph.setStatisticsHandler(jobGraph.getCustomAbstractCentralStatisticsHandler)
         }
 

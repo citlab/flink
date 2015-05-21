@@ -208,8 +208,6 @@ public class ExecutionGraph implements Serializable {
 	// ------ Custom statistics -------
 	private boolean customStatisticsEnabled = false;
 
-	private long customStatisticsInterval;
-
 	private ActorRef statisticsActor;
 
 	private AbstractCentralStatisticsHandler statisticsHandler;
@@ -305,10 +303,6 @@ public class ExecutionGraph implements Serializable {
 
 	public void setCustomStatisticsEnabled(boolean customStatisticsEnabled) {
 		this.customStatisticsEnabled = customStatisticsEnabled;
-	}
-
-	public void setCustomStatisticsInterval(long customStatisticsInterval) {
-		this.customStatisticsInterval = customStatisticsInterval;
 	}
 
 	public void setStatisticsHandler(AbstractCentralStatisticsHandler statisticsHandler) {
@@ -560,8 +554,7 @@ public class ExecutionGraph implements Serializable {
 			}
 
 			if (customStatisticsEnabled) {
-				statisticsActor = CentralStatisticsActor.spawn(parentContext, this,
-						Duration.create(customStatisticsInterval, TimeUnit.MILLISECONDS), statisticsHandler);
+				statisticsActor = CentralStatisticsActor.spawn(parentContext, this, statisticsHandler);
 			}
 		}
 		else {

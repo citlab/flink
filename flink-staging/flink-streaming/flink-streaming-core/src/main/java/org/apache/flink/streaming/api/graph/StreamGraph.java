@@ -87,7 +87,7 @@ public class StreamGraph extends StreamingPlan {
 	private StateHandleProvider<?> stateHandleProvider;
 
 	// qos statistics and constraints
-	private long qosStatisticReportInterval = QosStatisticsConfig.getAggregationIntervalMillis();
+	private long qosStatisticReportInterval = -1;
 	private Map<ConstraintIdentifier, Integer> constraintStarts;
 	private Map<ConstraintIdentifier, Integer> constraintEnds;
 	private Map<ConstraintIdentifier, Long> constraintLatencies;

@@ -436,12 +436,13 @@ public class StreamingJobGraphGenerator {
 
 		jobGraph.setCustomStatisticsEnabled(true);
 		jobGraph.setCustomAbstractCentralStatisticsHandler(new CentralQosStatisticsHandler());
-		// central statistics handler (job manager) report interval
-		long reportInterval = streamGraph.getQosStatisticReportInterval();
-		// job manager report interval (qos manager)
-		jobGraph.setCustomStatisticsInterval(reportInterval);
+
 		// task manager report interval (qos forwarder)
-		jobGraph.getJobConfiguration().setLong(QosStatisticsConfig.AGGREGATION_INTERVAL_KEY, reportInterval);
+		if (streamGraph.getQosStatisticReportInterval() > 0) {
+			jobGraph.getJobConfiguration().setLong(
+					QosStatisticsConfig.AGGREGATION_INTERVAL_KEY,
+					streamGraph.getQosStatisticReportInterval());
+		}
 
 		Set<StreamGraphConstraint> constraints = streamGraph.calculateConstraints();
 		for (StreamGraphConstraint constraint : constraints) {
