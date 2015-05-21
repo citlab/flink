@@ -20,14 +20,11 @@ package org.apache.flink.streaming.statistics.jobmanager.autoscaling.optimizatio
 
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosGroupEdgeSummary;
+import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
 
 public abstract class GG1Server {
 
 	public static final double MAX_UTILIZATION = 0.9;
-
-	public static final double MIN_FITTING_FACTOR = 0.8;
-
-	public static final double MAX_FITTING_FACTOR = 1.2;
 
 	private final JobVertexID groupVertexID;
 
@@ -61,10 +58,10 @@ public abstract class GG1Server {
 		
 		double theoreticalFittingFactor = (edgeSummary.getTransportLatencyMean() / 1000)
 				/ getQueueWaitUnfitted(p);
-		if(theoreticalFittingFactor < MIN_FITTING_FACTOR) {
-			fittingFactor = MIN_FITTING_FACTOR;
-		} else if (theoreticalFittingFactor > MAX_FITTING_FACTOR) {
-			fittingFactor = MAX_FITTING_FACTOR;
+		if(theoreticalFittingFactor < QosStatisticsConfig.getElasticScalingMinFittingFactor()) {
+			fittingFactor = QosStatisticsConfig.getElasticScalingMinFittingFactor();
+		} else if (theoreticalFittingFactor > QosStatisticsConfig.getElasticScalingMaxFittingFactor()) {
+			fittingFactor = QosStatisticsConfig.getElasticScalingMaxFittingFactor();
 		} else {
 			fittingFactor = theoreticalFittingFactor;
 		}
