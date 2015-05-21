@@ -20,6 +20,7 @@ package org.apache.flink.streaming.statistics.taskmanager.qosreporter;
 
 import akka.actor.ActorRef;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.statistics.StatisticReport;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
@@ -28,6 +29,7 @@ import org.apache.flink.streaming.statistics.message.qosreport.EdgeLatency;
 import org.apache.flink.streaming.statistics.message.qosreport.EdgeStatistics;
 import org.apache.flink.streaming.statistics.message.qosreport.QosReport;
 import org.apache.flink.streaming.statistics.message.qosreport.VertexStatistics;
+import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,12 +79,16 @@ public class QosReportForwarderThread extends Thread {
 
 	private final ArrayList<AbstractQosReportRecord> tmpRecords;
 
-	public QosReportForwarderThread(StreamTaskQosCoordinator qosCoordinator, Environment env) {
-		this.jobID = env.getJobID();
-		this.jobManager = env.getJobManager();
+	public QosReportForwarderThread(JobID jobID, ActorRef jobManager, Configuration jobConf) {
+		this.jobID = jobID;
+		this.jobManager = jobManager;
 
-		this.aggregationInterval = qosCoordinator.getAggregationInterval();
-		this.samplingProbability = qosCoordinator.getSamplingProbability();
+		this.aggregationInterval = jobConf.getLong(
+				QosStatisticsConfig.AGGREGATION_INTERVAL_KEY,
+				QosStatisticsConfig.getAggregationIntervalMillis());
+		this.samplingProbability = jobConf.getInteger(
+				QosStatisticsConfig.SAMPLING_PROBABILITY_KEY,
+				QosStatisticsConfig.getSamplingProbabilityPercent());
 
 		this.registeredTasksInstances = new HashSet<Integer>();
 
@@ -224,7 +230,7 @@ public class QosReportForwarderThread extends Thread {
 	 * After finishing the task, call {@link #unregisterTask(StreamTask)}.
 	 */
 	public static QosReportForwarderThread getOrCreateForwarderAndRegisterTask(
-			StreamTaskQosCoordinator coordinator, StreamTask task, Environment env) {
+			StreamTask task, Environment env) {
 
 		QosReportForwarderThread forwarder;
 
@@ -233,7 +239,10 @@ public class QosReportForwarderThread extends Thread {
 			forwarder = runningForwarder.get(jobID);
 
 			if (forwarder == null) {
-				forwarder = new QosReportForwarderThread(coordinator, env);
+				ActorRef jobManager = env.getJobManager();
+				Configuration jobConf = env.getJobConfiguration();
+				forwarder = new QosReportForwarderThread(jobID, jobManager, jobConf);
+
 				runningForwarder.put(jobID, forwarder);
 			}
 

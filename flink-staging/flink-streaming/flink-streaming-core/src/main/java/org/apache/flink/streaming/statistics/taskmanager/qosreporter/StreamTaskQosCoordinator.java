@@ -31,7 +31,6 @@ import org.apache.flink.streaming.statistics.message.action.QosReporterConfig;
 import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex.VertexStatisticsReportManager;
-import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,8 +84,8 @@ public class StreamTaskQosCoordinator {
 	public StreamTaskQosCoordinator(StreamTask task) {
 		this.task = task;
 		this.taskEnvironment = task.getEnvironment();
-		this.forwarderThread = QosReportForwarderThread.getOrCreateForwarderAndRegisterTask(
-				this, task, taskEnvironment);
+		this.forwarderThread =
+			QosReportForwarderThread.getOrCreateForwarderAndRegisterTask(task, taskEnvironment);
 		this.inputGateReporters = new ArrayList<InputGateReporterManager>();
 		this.outputGateReporters = new ArrayList<OutputGateReporterManager>();
 	}
@@ -105,17 +104,6 @@ public class StreamTaskQosCoordinator {
 		this.forwarderThread.unregisterTask(this.task);
 	}
 
-	public long getAggregationInterval() {
-		return this.task.getJobConfiguration().getLong(
-				QosStatisticsConfig.AGGREGATION_INTERVAL_KEY,
-				QosStatisticsConfig.getAggregationIntervalMillis());
-	}
-
-	public int getSamplingProbability() {
-		return this.task.getJobConfiguration().getInteger(
-				QosStatisticsConfig.SAMPLING_PROBABILITY_KEY,
-				QosStatisticsConfig.getSamplingProbabilityPercent());
-	}
 
 //	public synchronized void handleLimitBufferSizeAction(
 //			LimitBufferSizeAction limitBufferSizeAction) {
