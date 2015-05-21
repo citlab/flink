@@ -55,7 +55,9 @@ import org.apache.flink.streaming.runtime.tasks.OneInputStreamTask;
 import org.apache.flink.streaming.runtime.tasks.SourceStreamTask;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationHead;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationTail;
+import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.runtime.tasks.TwoInputStreamTask;
+import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
 import org.apache.sling.commons.json.JSONException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,7 +87,7 @@ public class StreamGraph extends StreamingPlan {
 	private StateHandleProvider<?> stateHandleProvider;
 
 	// qos statistics and constraints
-	private long qosStatisticReportInterval = 7000;
+	private long qosStatisticReportInterval = QosStatisticsConfig.getAggregationIntervalMillis();
 	private Map<ConstraintIdentifier, Integer> constraintStarts;
 	private Map<ConstraintIdentifier, Integer> constraintEnds;
 	private Map<ConstraintIdentifier, Long> constraintLatencies;

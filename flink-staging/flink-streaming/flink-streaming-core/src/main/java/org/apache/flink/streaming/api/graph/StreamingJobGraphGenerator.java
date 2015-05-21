@@ -58,6 +58,7 @@ import org.apache.flink.streaming.statistics.SequenceElement;
 import org.apache.flink.streaming.statistics.message.action.EdgeQosReporterConfig;
 import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosReportForwarderThread;
+import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
 import org.apache.flink.util.InstantiationUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -437,9 +438,10 @@ public class StreamingJobGraphGenerator {
 		jobGraph.setCustomAbstractCentralStatisticsHandler(new CentralQosStatisticsHandler());
 		// central statistics handler (job manager) report interval
 		long reportInterval = streamGraph.getQosStatisticReportInterval();
+		// job manager report interval (qos manager)
 		jobGraph.setCustomStatisticsInterval(reportInterval);
-		// forwarder (task manager) report interval
-		jobGraph.getJobConfiguration().setLong(QosReportForwarderThread.FORWARDER_REPORT_INTERVAL_KEY, reportInterval);
+		// task manager report interval (qos forwarder)
+		jobGraph.getJobConfiguration().setLong(QosStatisticsConfig.AGGREGATION_INTERVAL_KEY, reportInterval);
 
 		Set<StreamGraphConstraint> constraints = streamGraph.calculateConstraints();
 		for (StreamGraphConstraint constraint : constraints) {
