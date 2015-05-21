@@ -19,14 +19,12 @@
 package org.apache.flink.streaming.statistics.jobmanager.autoscaling;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
 import org.apache.flink.streaming.statistics.LatencyConstraintID;
 import org.apache.flink.streaming.statistics.jobmanager.autoscaling.optimization.ScalingActuator;
 import org.apache.flink.streaming.statistics.message.AbstractQosMessage;
-import org.apache.flink.streaming.statistics.message.TaskCpuLoadChange;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosConstraintSummary;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosLogger;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosUtils;
@@ -44,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 
-// TODO: clear old task cpu loads on execution failures/shutdowns
 // TODO: add web statistics
 public class ElasticTaskQosAutoScalingThread extends Thread {
 
@@ -56,15 +53,9 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 
 	private long timeOfNextScaling;
 
-	private final HashMap<ExecutionAttemptID, TaskCpuLoadChange> taskCpuLoads = new HashMap<ExecutionAttemptID, TaskCpuLoadChange>();
-
 	private final HashMap<LatencyConstraintID, QosConstraintSummaryAggregator> aggregators = new HashMap<LatencyConstraintID, QosConstraintSummaryAggregator>();
 
-	private final HashMap<LatencyConstraintID, LatencyConstraintCpuLoadSummaryAggregator> cpuLoadAggregators = new HashMap<LatencyConstraintID, LatencyConstraintCpuLoadSummaryAggregator>();
-
 	private final HashMap<LatencyConstraintID, QosLogger> qosLoggers = new HashMap<LatencyConstraintID, QosLogger>();
-
-	private final HashMap<LatencyConstraintID, CpuLoadLogger> cpuLoadLoggers = new HashMap<LatencyConstraintID, CpuLoadLogger>();
 
 	private final ScalingActuator scalingActuator;
 
@@ -87,11 +78,9 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 
 			qosConstraints.put(constraintID, constraint);
 			aggregators.put(constraintID, new QosConstraintSummaryAggregator(execGraph, constraint));
-			cpuLoadAggregators.put(constraintID, new LatencyConstraintCpuLoadSummaryAggregator(execGraph, constraint));
 
 			try {
 				qosLoggers.put(constraintID, new QosLogger(jobId, constraint, loggingInterval));
-				cpuLoadLoggers.put(constraintID, new CpuLoadLogger(execGraph, constraint, loggingInterval));
 			} catch (Exception e) {
 				LOG.error("Exception while initializing loggers", e);
 			}
@@ -163,9 +152,6 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 					List<QosConstraintSummary> constraintSummaries = aggregateConstraintSummaries();
 					logConstraintSummaries(constraintSummaries);
 
-					Map<LatencyConstraintID, LatencyConstraintCpuLoadSummary> cpuLoadSummaries = summarizeCpuUtilizations(taskCpuLoads);
-					logCpuLoadSummaries(cpuLoadSummaries);
-
 					Map<JobVertexID, Integer> parallelismChanges = scalingPolicy.getParallelismChanges(constraintSummaries);
 					scalingActuator.updateScalingActions(parallelismChanges);
 
@@ -222,36 +208,6 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 //		webStatistic.logConstraintSummaries(constraintSummaries);
 	}
 
-	private Map<LatencyConstraintID, LatencyConstraintCpuLoadSummary> summarizeCpuUtilizations(Map<ExecutionAttemptID, TaskCpuLoadChange> taskCpuLoads)
-			throws UnexpectedVertexExecutionStateException {
-
-		HashMap<LatencyConstraintID, LatencyConstraintCpuLoadSummary> summaries = new HashMap<LatencyConstraintID, LatencyConstraintCpuLoadSummary>();
-
-		for (LatencyConstraintID constraint : this.cpuLoadAggregators.keySet()) {
-			LatencyConstraintCpuLoadSummaryAggregator aggregator = this.cpuLoadAggregators.get(constraint);
-			summaries.put(constraint, aggregator.summarizeCpuUtilizations(taskCpuLoads));
-		}
-
-		return summaries;
-	}
-
-	private void logCpuLoadSummaries(Map<LatencyConstraintID, LatencyConstraintCpuLoadSummary> summaries) {
-//		this.webStatistic.logCpuLoadSummaries(summaries);
-
-		for (LatencyConstraintID constraint : summaries.keySet()) {
-			CpuLoadLogger logger = this.cpuLoadLoggers.get(constraint);
-
-			if (logger != null) {
-				try {
-					logger.logCpuLoads(summaries.get(constraint));
-
-				} catch (IOException e) {
-					LOG.error("Error during CPU load logging", e);
-				}
-			}
-		}
-	}
-
 	private void cleanUp() {
 		for (QosLogger logger : qosLoggers.values()) {
 			try {
@@ -261,18 +217,9 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 			}
 		}
 
-		for (CpuLoadLogger logger : cpuLoadLoggers.values()) {
-			try {
-				logger.close();
-			} catch (IOException e) {
-				LOG.warn("Failure while closing cpu load logger!", e);
-			}
-		}
-
 		// clear large memory structures
 		qosMessages.clear();
 		aggregators.clear();
-		taskCpuLoads.clear();
 		scalingPolicy = null;
 		scalingActuator.shutdown();
 //		QosStatisticsServlet.removeJob(this.jobID);
@@ -296,23 +243,12 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 		while (!qosMessages.isEmpty()) {
 			AbstractQosMessage nextMessage = qosMessages.poll();
 
-			if (nextMessage instanceof TaskCpuLoadChange) {
-				handleTaskLoadStateChange((TaskCpuLoadChange) nextMessage);
-
-			} else if (nextMessage instanceof  QosConstraintSummary) {
+			if (nextMessage instanceof  QosConstraintSummary) {
 				QosConstraintSummary constraintSummary = (QosConstraintSummary) nextMessage;
 				LatencyConstraintID constraintID = constraintSummary.getLatencyConstraintID();
 				aggregators.get(constraintID).add(constraintSummary);
 			}
 		}
-	}
-
-	private void handleTaskLoadStateChange(TaskCpuLoadChange msg) {
-		this.taskCpuLoads.put(msg.getAttemptID(), msg);
-	}
-
-	public void enqueueMessage(TaskCpuLoadChange change) {
-		this.qosMessages.add(change);
 	}
 
 	public void enqueueMessage(QosConstraintSummary summary) {
