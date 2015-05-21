@@ -24,9 +24,8 @@ import org.apache.flink.runtime.messages.ExecutionGraphMessages.{ExecutionStateC
 import scala.concurrent.duration.FiniteDuration
 
 abstract class AbstractCentralStatisticsHandler extends Serializable {
-  def open(jobID: JobID, executionGraph: ExecutionGraph, reportInterval: FiniteDuration) {}
+  def open(jobID: JobID, executionGraph: ExecutionGraph) {}
   def handleStatistic(statistic: CustomStatistic)
-  def reportStatistics
   def handleExecutionStateChanged(executionStatus: ExecutionStateChanged) {}
   def handleJobStatusChanged(jobStatus: JobStatusChanged) {}
   def close {}

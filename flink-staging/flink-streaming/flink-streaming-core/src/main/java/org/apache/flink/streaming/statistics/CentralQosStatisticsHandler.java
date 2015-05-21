@@ -30,13 +30,11 @@ import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosModel;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.concurrent.duration.FiniteDuration;
 
 public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandler {
 	private static final Logger LOG = LoggerFactory.getLogger(CentralQosStatisticsHandler.class);
 	private JobID jobID;
 	private ExecutionGraph executionGraph;
-	private FiniteDuration reportInterval;
 
 	private QosGraph qosGraph;
 	private QosModel qosModel;
@@ -44,10 +42,9 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 	private QosManagerThread qosManagerThread;
 
 	@Override
-	public void open(JobID jobID, ExecutionGraph executionGraph, FiniteDuration reportInterval) {
+	public void open(JobID jobID, ExecutionGraph executionGraph) {
 		this.jobID = jobID;
 		this.executionGraph = executionGraph;
-		this.reportInterval = reportInterval;
 
 		this.qosGraph = QosGraph.buildQosGraphFromJobConfig(executionGraph);
 		this.qosModel = new QosModel(this.qosGraph);
@@ -71,11 +68,6 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 		} else {
 			LOG.error("Got unknown statistic: {}.", statistic.getClass().getSimpleName());
 		}
-	}
-
-	@Override
-	public void reportStatistics() {
-		LOG.warn("Statistic? Running!");
 	}
 
 	@Override

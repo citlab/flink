@@ -302,14 +302,6 @@ public class JobGraph implements Serializable {
 		return customStatisticsEnabled;
 	}
 
-	public void setCustomStatisticsInterval(long customStatisticsInterval) {
-		this.customStatisticsInterval = customStatisticsInterval;
-	}
-
-	public long getCustomStatisticsInterval() {
-		return customStatisticsInterval;
-	}
-
 	public void setCustomAbstractCentralStatisticsHandler(AbstractCentralStatisticsHandler customAbstractCentralStatisticsHandler) {
 		this.customAbstractCentralStatisticsHandler = customAbstractCentralStatisticsHandler;
 	}
