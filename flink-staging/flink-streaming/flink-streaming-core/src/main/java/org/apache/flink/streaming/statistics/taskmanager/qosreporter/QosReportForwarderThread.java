@@ -51,8 +51,6 @@ import java.util.concurrent.LinkedBlockingQueue;
  * @author Bjoern Lohrmann, Sascha Wolke
  */
 public class QosReportForwarderThread extends Thread {
-	public static final String FORWARDER_REPORT_INTERVAL_KEY = "qos.taskManager.aggregationInterval";
-
 	private static final Logger LOG = LoggerFactory.getLogger(QosReportForwarderThread.class);
 
 	/** Keeps track of running instances of this class. */
