@@ -63,16 +63,13 @@ public class QosConstraintSummaryAggregator {
 	public boolean canAggregate() {
 		return this.summary.hasData();
 	}
-	
-	public QosConstraintSummary computeAggregation() {
-		QosConstraintViolationReport vioRep = new QosConstraintViolationReport(constraint);
-		QosConstraintSummary aggregation = new QosConstraintSummary(constraint, vioRep);
 
-		List<QosConstraintSummary> completeSummaries = getCompleteSummaries();
-		aggregation.merge(completeSummaries);
-		
-		fixNoOfActiveVerticesAndEdges(aggregation);		
-		return aggregation;
+	/**
+	 * This method is called only if current summary has data (@see #canAggregate()).
+	 */
+	public QosConstraintSummary computeAggregation() {
+		fixNoOfActiveVerticesAndEdges(this.summary);
+		return this.summary;
 	}
 
 	public void fixNoOfActiveVerticesAndEdges(QosConstraintSummary aggregation) {
@@ -115,13 +112,5 @@ public class QosConstraintSummaryAggregator {
 				edgeSum.setActiveEdges(-1);
 			}
 		}
-	}
-
-	private List<QosConstraintSummary> getCompleteSummaries() {
-		List<QosConstraintSummary> ret = new LinkedList<QosConstraintSummary>();
-		if (this.summary.hasData()) {
-			ret.add(summary);
-		}
-		return ret;
 	}
 }
