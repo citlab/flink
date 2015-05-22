@@ -136,4 +136,38 @@ public class JobGraphSequence extends LinkedList<SequenceElement>
 
 		return null;
 	}
+
+	@Override
+	public String toString() {
+		StringBuilder stringBuilder = new StringBuilder();
+
+		SequenceElement first = getFirst();
+		SequenceElement last = getLast();
+
+		if (!first.isVertex()) {
+			stringBuilder
+					.append("(")
+					.append(first.getSourceVertexID())
+					.append(")");
+		}
+
+		for (SequenceElement sequenceElement : this) {
+			if (sequenceElement.isVertex()) {
+				stringBuilder.append(sequenceElement.getVertexID());
+			} else {
+				stringBuilder.append(" - ");
+				stringBuilder.append(sequenceElement.getOutputGateIndex());
+				stringBuilder.append(" -> ");
+			}
+		}
+
+		if (!last.isVertex()) {
+			stringBuilder
+					.append("(")
+					.append(last.getTargetVertexID())
+					.append(")");
+		}
+
+		return stringBuilder.toString();
+	}
 }
