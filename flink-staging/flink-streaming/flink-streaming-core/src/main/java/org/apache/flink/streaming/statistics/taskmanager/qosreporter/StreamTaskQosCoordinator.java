@@ -25,17 +25,19 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
+import org.apache.flink.streaming.runtime.io.QosReportingRecordWriter;
+import org.apache.flink.streaming.runtime.io.StreamingAbstractRecordReader;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.statistics.message.action.EdgeQosReporterConfig;
 import org.apache.flink.streaming.statistics.message.action.QosReporterConfig;
 import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.QosReportingListenerHelper;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex.VertexStatisticsReportManager;
-import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
+import java.util.List;
 
 /**
  * An instance of this class implements Qos data reporting for a specific vertex
@@ -63,7 +65,7 @@ public class StreamTaskQosCoordinator {
 	 * all of the input gate's channels. This is a sparse list (may contain
 	 * nulls), indexed by the runtime gate's own indices.
 	 */
-	private ArrayList<InputGateReporterManager> inputGateReporters;
+	private InputGateReporterManager[] inputGateReporters;
 
 	/**
 	 * For each output gate of the task for whose output channels QoS statistics
@@ -74,7 +76,7 @@ public class StreamTaskQosCoordinator {
 	 * a sparse list (may contain nulls), indexed by the runtime gate's own
 	 * indices.
 	 */
-	private ArrayList<OutputGateReporterManager> outputGateReporters;
+	private OutputGateReporterManager[] outputGateReporters;
 
 	/**
 	 * For each input/output gate combination for which Qos reports are
@@ -85,10 +87,10 @@ public class StreamTaskQosCoordinator {
 	public StreamTaskQosCoordinator(StreamTask task) {
 		this.task = task;
 		this.taskEnvironment = task.getEnvironment();
-		this.forwarderThread = QosReportForwarderThread.getOrCreateForwarderAndRegisterTask(
-				this, task, taskEnvironment);
-		this.inputGateReporters = new ArrayList<InputGateReporterManager>();
-		this.outputGateReporters = new ArrayList<OutputGateReporterManager>();
+		this.forwarderThread =
+			QosReportForwarderThread.getOrCreateForwarderAndRegisterTask(task, taskEnvironment);
+		this.inputGateReporters = new InputGateReporterManager[this.taskEnvironment.getAllInputGates().length];
+		this.outputGateReporters = new OutputGateReporterManager[this.taskEnvironment.getAllWriters().length];
 	}
 
 	public void prepareQosReporting() {
@@ -105,16 +107,15 @@ public class StreamTaskQosCoordinator {
 		this.forwarderThread.unregisterTask(this.task);
 	}
 
-	public long getAggregationInterval() {
-		return this.task.getJobConfiguration().getLong(
-				QosStatisticsConfig.AGGREGATION_INTERVAL_KEY,
-				QosStatisticsConfig.getAggregationIntervalMillis());
-	}
 
-	public int getSamplingProbability() {
-		return this.task.getJobConfiguration().getInteger(
-				QosStatisticsConfig.SAMPLING_PROBABILITY_KEY,
-				QosStatisticsConfig.getSamplingProbabilityPercent());
+	public VertexStatisticsReportManager getOrCreateVertexStatisticsManager() {
+		if (this.vertexStatisticsManager == null) {
+			this.vertexStatisticsManager = new VertexStatisticsReportManager(
+					this.forwarderThread,
+					this.taskEnvironment.getAllInputGates().length,
+					this.taskEnvironment.getAllWriters().length);
+		}
+		return vertexStatisticsManager;
 	}
 
 //	public synchronized void handleLimitBufferSizeAction(
@@ -127,9 +128,78 @@ public class StreamTaskQosCoordinator {
 //		TODO
 //	}
 
+	public void setupInputQosListener(StreamingAbstractRecordReader<?> input, int inputIndex) {
+		List<QosReporterConfig> qosReporterConfigs = task.getConfig().getQosReporterConfigs();
+		for (QosReporterConfig config : qosReporterConfigs) {
+			if (config instanceof VertexQosReporterConfig) {
+
+				VertexQosReporterConfig vertexConfig = (VertexQosReporterConfig) config;
+
+				final VertexStatisticsReportManager vertexStatisticsManager = this.getOrCreateVertexStatisticsManager();
+
+				IntermediateDataSetID inputDataSetID = vertexConfig.getInputDataSetID();
+				final int inputGateIndex = vertexConfig.getInputGateIndex(); // must be -1 or 0
+				if (inputDataSetID != null && inputIndex == inputGateIndex) {
+					QosReportingListenerHelper.listenToVertexStatisticsOnInputGate(input, inputGateIndex,
+							vertexStatisticsManager);
+				}
+
+			} else if (config instanceof EdgeQosReporterConfig) {
+				EdgeQosReporterConfig edgeConfig = (EdgeQosReporterConfig) config;
+
+				int inputGateIndex = edgeConfig.getInputGateIndex(); // must be -1 or 0
+				if (inputGateIndex == inputIndex) {
+					InputGateReporterManager inputGateReporter = inputGateReporters[inputIndex];
+					QosReportingListenerHelper.listenToChannelLatenciesOnInputGate(input, inputGateReporter);
+				}
+			}
+		}
+	}
+
+	public void setupOutputQosListener(QosReportingRecordWriter<?> writer, int outputIndex) {
+		List<QosReporterConfig> qosReporterConfigs = task.getConfig().getQosReporterConfigs();
+		for (QosReporterConfig config : qosReporterConfigs) {
+			if (config instanceof VertexQosReporterConfig) {
+
+				VertexQosReporterConfig vertexConfig = (VertexQosReporterConfig) config;
+
+				final VertexStatisticsReportManager vertexStatisticsManager = this.getOrCreateVertexStatisticsManager();
+
+				IntermediateDataSetID outputDataSetID = vertexConfig.getOutputDataSetID();
+				final int outputGateIndex = vertexConfig.getOutputGateIndex();
+				if (outputDataSetID != null && outputIndex == outputGateIndex) {
+					QosReportingListenerHelper.listenToVertexStatisticsOnOutputGate(writer, outputGateIndex,
+							vertexStatisticsManager);
+				}
+
+			} else if (config instanceof EdgeQosReporterConfig) {
+				EdgeQosReporterConfig edgeConfig = (EdgeQosReporterConfig) config;
+
+				int outputGateIndex = edgeConfig.getOutputGateIndex();
+				if (outputGateIndex == outputIndex) {
+					OutputGateReporterManager outputGateReporter = outputGateReporters[outputGateIndex];
+					QosReportingListenerHelper.listenToOutputChannelStatisticsOnOutputGate(writer, outputGateReporter);
+				}
+			}
+		}
+	}
+
+
 	private void installVertexStatisticsReporters(VertexQosReporterConfig config) {
 		QosReporterID.Vertex reporterID = QosReporterID.forVertex(this.task, config);
-		installVertexStatisticsReporter(reporterID, config);
+
+		LOG.debug("Installing vertex qos reporter {}: {}", reporterID, config);
+
+		VertexStatisticsReportManager vertexStatisticsManager = getOrCreateVertexStatisticsManager();
+
+		if (vertexStatisticsManager.containsReporter(reporterID)) {
+			return;
+		}
+
+		int inputGateIndex = config.getInputGateIndex();
+		int outputGateIndex = config.getOutputGateIndex();
+
+		vertexStatisticsManager.addReporter(inputGateIndex, outputGateIndex, reporterID, config.getSamplingStrategy());
 	}
 
 	private void installEdgeStatisticsReporters(EdgeQosReporterConfig config) {
@@ -146,13 +216,17 @@ public class StreamTaskQosCoordinator {
 				ResultPartitionWriter writer = writers[outputGateIndex];
 				IntermediateResultPartitionID partitionID = writer.getPartitionId().getPartitionId();
 
+				OutputGateReporterManager outputGateReporter = new OutputGateReporterManager(forwarderThread,
+						writer.getNumberOfOutputChannels());
+
 				for (int subIndex = 0; subIndex < writer.getNumberOfOutputChannels(); subIndex++) {
 					QosReporterID.Edge reporterID = QosReporterID.forEdge(partitionID, subIndex);
-					installOutputGateListeners(reporterID, config);
+					outputGateReporter.addEdgeQosReporterConfig(subIndex, reporterID);
 					installed = true;
 				}
-			}
 
+				outputGateReporters[outputGateIndex] = outputGateReporter;
+			}
 		} else {
 			int inputGateIndex = config.getInputGateIndex();
 			InputGate[] inputGates = this.taskEnvironment.getAllInputGates();
@@ -163,48 +237,23 @@ public class StreamTaskQosCoordinator {
 				SingleInputGate inputGate = (SingleInputGate) inputGates[inputGateIndex];
 				int subPartitionIndex = this.task.getIndexInSubtaskGroup();
 
+				InputGateReporterManager inputGateReporter = new InputGateReporterManager(forwarderThread,
+						inputGate.getNumberOfInputChannels());
+
+				int i = 0;
 				for (InputChannel channel : inputGate.getAllInputChannels()) {
 					IntermediateResultPartitionID partitionID = channel.getPartitionId().getPartitionId();
 					QosReporterID.Edge reporterID = QosReporterID.forEdge(partitionID, subPartitionIndex);
-					installInputGateListeners(reporterID, config);
+					inputGateReporter.addEdgeQosReporterConfig(i++, reporterID);
 					installed = true;
 				}
+
+				inputGateReporters[inputGateIndex] = inputGateReporter;
 			}
 		}
 
 		if (!installed) {
 			throw new RuntimeException("Failed to install EdgeQosReporter. This is bug.");
 		}
-	}
-
-	private void installVertexStatisticsReporter(
-			QosReporterID.Vertex reporterID, VertexQosReporterConfig reporterConfig) {
-
-		LOG.debug("Installing vertex qos reporter {}: {}", reporterID, reporterConfig);
-
-		if (this.vertexStatisticsManager == null) {
-			this.vertexStatisticsManager = new VertexStatisticsReportManager(
-				this.forwarderThread,
-				this.taskEnvironment.getAllInputGates().length,
-				this.taskEnvironment.getAllWriters().length);
-		}
-
-		// TODO: register listeners
-	}
-
-	private void installInputGateListeners(
-			QosReporterID.Edge reporterID, EdgeQosReporterConfig reporterConfig) {
-
-		LOG.debug("Installing edge qos reporter {}: {}", reporterID, reporterConfig);
-
-		// TODO: register listeners
-	}
-
-	private void installOutputGateListeners(
-			QosReporterID.Edge reporterID, EdgeQosReporterConfig reporterConfig) {
-
-		LOG.debug("Installing edge qos reporter {}: {}", reporterID, reporterConfig);
-
-		// TODO: register listeners
 	}
 }

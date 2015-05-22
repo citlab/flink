@@ -29,6 +29,7 @@ import org.apache.flink.streaming.runtime.io.IndexedReaderIterator;
 import org.apache.flink.streaming.runtime.io.InputGateFactory;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecordSerializer;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.StreamTaskQosCoordinator;
 
 public class InputHandler<IN> {
 	private StreamRecordSerializer<IN> inputSerializer = null;
@@ -58,6 +59,11 @@ public class InputHandler<IN> {
 		if (numberOfInputs > 0) {
 			InputGate inputGate = InputGateFactory.createInputGate(streamVertex.getEnvironment().getAllInputGates());
 			inputs = new IndexedMutableReader<DeserializationDelegate<StreamRecord<IN>>>(inputGate);
+
+			StreamTaskQosCoordinator qosCoordinator = streamVertex.getQosCoordinator();
+			if (qosCoordinator != null) {
+				qosCoordinator.setupInputQosListener(inputs, 0);
+			}
 
 			inputs.registerTaskEventListener(streamVertex.getSuperstepListener(),
 					StreamingSuperstep.class);

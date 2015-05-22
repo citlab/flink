@@ -283,7 +283,7 @@ public abstract class StreamExecutionEnvironment {
 	}
 
 	/**
-	 * Sets qos statics report interval.
+	 * Sets qos statistics report interval.
 	 *
 	 * @param reportInterval Task manager statistics report interval in milliseconds.
 	 */
