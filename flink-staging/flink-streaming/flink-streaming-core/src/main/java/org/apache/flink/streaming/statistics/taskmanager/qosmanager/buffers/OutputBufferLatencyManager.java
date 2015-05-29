@@ -22,7 +22,6 @@ import akka.actor.ActorRef;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.messages.TaskMessages;
 import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
-import org.apache.flink.streaming.statistics.message.action.SetOutputBufferLifetimeTargetAction;
 import org.apache.flink.streaming.statistics.message.action.SetOutputBufferLifetimeTargetEvent;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosConstraintViolationListener;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosSequenceLatencySummary;

@@ -632,9 +632,10 @@ public class ExecutionJobVertex implements Serializable {
 	}
 
 	public int getNumberOfRunningSubstasks() {
-		if (hasElasticNumberOfRunningSubtasks())
+		if (hasElasticNumberOfRunningSubtasks()) {
 			return getCurrentElasticNumberOfRunningSubtasks();
-		else
+		} else {
 			return getParallelism();
+		}
 	}
 }

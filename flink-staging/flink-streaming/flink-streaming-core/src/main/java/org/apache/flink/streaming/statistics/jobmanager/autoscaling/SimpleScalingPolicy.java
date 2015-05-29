@@ -60,9 +60,8 @@ public class SimpleScalingPolicy extends AbstractScalingPolicy {
 	}
 
 	protected void getParallelismChangesForConstraint(JobGraphLatencyConstraint constraint,
-	                                                  QosConstraintSummary constraintSummary,
-	                                                  Map<JobVertexID, Integer> globalParallelismChanges)
-					throws UnexpectedVertexExecutionStateException {
+			QosConstraintSummary constraintSummary,	Map<JobVertexID, Integer> globalParallelismChanges)
+			throws UnexpectedVertexExecutionStateException {
 
 		ArrayList<GG1Server> servers = createServers(constraint, constraintSummary, globalParallelismChanges);
 
@@ -78,8 +77,7 @@ public class SimpleScalingPolicy extends AbstractScalingPolicy {
 	}
 
 	private void mergeLocalParallelismChangesIntoGlobal(Map<JobVertexID, Integer> globalParallelismChanges,
-					ArrayList<GG1Server> servers, Map<JobVertexID,
-					Integer> localParallelismChanges) {
+			ArrayList<GG1Server> servers, Map<JobVertexID, Integer> localParallelismChanges) {
 
 		for (GG1Server server : servers) {
 			JobVertexID id = server.getGroupVertexID();
@@ -98,11 +96,10 @@ public class SimpleScalingPolicy extends AbstractScalingPolicy {
 
 
 	private Map<JobVertexID, Integer> rebalance(JobGraphLatencyConstraint constraint,
-	                       QosConstraintSummary constraintSummary,
-	                       ArrayList<GG1Server> servers) {
+			QosConstraintSummary constraintSummary, ArrayList<GG1Server> servers) {
 
-		double targetQueueingTimeMillis = computeTargetQueueTimeOfElasticServers(constraint,
-						constraintSummary, servers);
+		double targetQueueingTimeMillis = computeTargetQueueTimeOfElasticServers(
+				constraint,	constraintSummary, servers);
 
 		Rebalancer reb = new Rebalancer(filterNonElasticServers(servers), targetQueueingTimeMillis);
 		boolean rebalanceSuccess = reb.computeRebalancedParallelism();
@@ -142,8 +139,7 @@ public class SimpleScalingPolicy extends AbstractScalingPolicy {
 	}
 
 	private ArrayList<GG1Server> createServers(JobGraphLatencyConstraint constraint,
-	                                           QosConstraintSummary constraintSummary,
-	                                           Map<JobVertexID, Integer> parallelismChanges) {
+			QosConstraintSummary constraintSummary, Map<JobVertexID, Integer> parallelismChanges) {
 
 		ArrayList<GG1Server> gg1Servers = new ArrayList<GG1Server>();
 
@@ -180,8 +176,7 @@ public class SimpleScalingPolicy extends AbstractScalingPolicy {
 	}
 
 	public double computeTargetQueueTimeOfElasticServers(JobGraphLatencyConstraint constraint,
-	                                                     QosConstraintSummary constraintSummary,
-	                                                     ArrayList<GG1Server> servers) {
+			QosConstraintSummary constraintSummary, ArrayList<GG1Server> servers) {
 
 		double availableShippingDelayMillis = constraint.getLatencyConstraintInMillis();
 

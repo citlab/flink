@@ -22,14 +22,10 @@ import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
 import org.apache.flink.streaming.statistics.SequenceElement;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosConstraintSummary;
-import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosConstraintViolationReport;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosGroupEdgeSummary;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosGroupVertexSummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.LinkedList;
-import java.util.List;
 
 /**
  * This class hold only one summary now, which might be outdated.
