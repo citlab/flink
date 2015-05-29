@@ -61,7 +61,7 @@ public class QosConstraintSummaryAggregator {
 	}
 	
 	public boolean canAggregate() {
-		return this.summary.hasData();
+		return this.summary != null && this.summary.hasData();
 	}
 
 	/**
