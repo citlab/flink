@@ -18,9 +18,14 @@
 
 package org.apache.flink.streaming.statistics.message.action;
 
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.runtime.event.task.TaskEvent;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
-import org.apache.flink.streaming.statistics.message.AbstractSerializableQosMessage;
+
+import java.io.IOException;
+import java.io.Serializable;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -28,41 +33,35 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * This class implements an action to communicate the desired output buffer
  * lifetime of a particular output channel to the channel itself.
- * 
+ *
  * @author warneke, Bjoern Lohrmann, Sascha Wolke
  */
-public final class SetOutputBufferLifetimeTargetAction extends
-		AbstractSerializableQosMessage implements QosAction {
+public final class SetOutputBufferLifetimeTargetEvent extends TaskEvent implements Serializable {
 
 	private final ExecutionAttemptID attemptID;
 
 	private final IntermediateResultPartitionID partitionID;
 
-	private int consumedSubpartitionIndex;
-
 	private int outputBufferLifetimeTarget;
 
-	public SetOutputBufferLifetimeTargetAction(ExecutionAttemptID attemptID,
-			IntermediateResultPartitionID partitionID, int consumedSubpartitionIndex,
-			int outputBufferLifetimeTarget) {
+	public SetOutputBufferLifetimeTargetEvent(ExecutionAttemptID attemptID,
+			IntermediateResultPartitionID partitionID, int outputBufferLifetimeTarget) {
+
 		super();
 
 		checkNotNull(attemptID, "Argument attemptID must not be null");
 		checkNotNull(partitionID, "Argument partitionID must not be null");
-		checkArgument(consumedSubpartitionIndex >= 0, "Argument consumedSubpartitionIndex must be greater than or equal zero");
-		checkArgument(outputBufferLifetimeTarget > 0, "Argument outputBufferLifetimeTarget must be greater than zero");
+		checkArgument(outputBufferLifetimeTarget >= 0, "Argument outputBufferLifetimeTarget must be greater or equal than zero");
 
 		this.attemptID = attemptID;
 		this.partitionID = partitionID;
-		this.consumedSubpartitionIndex = consumedSubpartitionIndex;
 		this.outputBufferLifetimeTarget = outputBufferLifetimeTarget;
 	}
 
-	public SetOutputBufferLifetimeTargetAction() {
+	public SetOutputBufferLifetimeTargetEvent() {
 		super();
 		this.attemptID = new ExecutionAttemptID();
 		this.partitionID = new IntermediateResultPartitionID();
-		this.consumedSubpartitionIndex = -1;
 		this.outputBufferLifetimeTarget = 0;
 	}
 
@@ -74,11 +73,21 @@ public final class SetOutputBufferLifetimeTargetAction extends
 		return partitionID;
 	}
 
-	public int getConsumedSubpartitionIndex() {
-		return consumedSubpartitionIndex;
-	}
-
 	public int getOutputBufferLifetimeTarget() {
 		return outputBufferLifetimeTarget;
+	}
+
+	@Override
+	public void read(DataInputView in) throws IOException {
+		this.attemptID.read(in);
+		this.partitionID.read(in);
+		this.outputBufferLifetimeTarget = in.readInt();
+	}
+
+	@Override
+	public void write(DataOutputView out) throws IOException {
+		this.attemptID.write(out);
+		this.partitionID.write(out);
+		out.writeInt(this.outputBufferLifetimeTarget);
 	}
 }

@@ -18,19 +18,28 @@
 package org.apache.flink.streaming.runtime.io;
 
 import org.apache.flink.core.io.IOReadableWritable;
+import org.apache.flink.runtime.event.task.TaskEvent;
 import org.apache.flink.runtime.io.network.api.serialization.RecordSerializer;
+import org.apache.flink.runtime.io.network.api.writer.ChannelSelector;
 import org.apache.flink.runtime.io.network.api.writer.RecordWriter;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
-import org.apache.flink.runtime.io.network.api.writer.ChannelSelector;
 import org.apache.flink.runtime.io.network.api.writer.RoundRobinChannelSelector;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.util.event.EventListener;
+import org.apache.flink.streaming.statistics.message.action.SetOutputBufferLifetimeTargetEvent;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.OutputGateQosReportingListener;
 import org.apache.flink.streaming.statistics.types.AbstractTaggableRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWriter<T> {
+public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWriter<T>
+		implements EventListener<TaskEvent> {
+
 	private OutputGateQosReportingListener qosCallback;
+
+	private static final Logger LOG = LoggerFactory.getLogger(StreamRecordWriter.class);
 
 	private long timeout;
 	private boolean flushAlways = false;
@@ -50,19 +59,22 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 		super(writer, channelSelector);
 
 		this.timeout = timeout;
+
 		if (timeout == 0) {
 			flushAlways = true;
 		} else {
 			this.outputFlusher = new OutputFlusher();
 			outputFlusher.start();
+            writer.subscribeToEvent(this, SetOutputBufferLifetimeTargetEvent.class);
 		}
 	}
 	
 	@Override
-	public void emit(T record) throws IOException, InterruptedException {
-		super.emit(record);
-		if (flushAlways) {
-			flush();
+	public void onEvent(TaskEvent event) {
+		if (event instanceof SetOutputBufferLifetimeTargetEvent) {
+			SetOutputBufferLifetimeTargetEvent target = (SetOutputBufferLifetimeTargetEvent) event;
+			this.timeout = target.getOutputBufferLifetimeTarget();
+			LOG.debug("New auto flush timeout set: {}.", this.timeout);
 		}
 	}
 

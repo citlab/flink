@@ -42,6 +42,7 @@ import org.apache.flink.runtime.akka.AkkaUtils
 import org.apache.flink.runtime.blob.{BlobService, BlobCache}
 import org.apache.flink.runtime.broadcast.BroadcastVariableManager
 import org.apache.flink.runtime.deployment.{InputChannelDeploymentDescriptor, TaskDeploymentDescriptor}
+import org.apache.flink.runtime.event.task.{TaskEvent, AbstractEvent}
 import org.apache.flink.runtime.execution.librarycache.{BlobLibraryCacheManager, FallbackLibraryCacheManager, LibraryCacheManager}
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID
 import org.apache.flink.runtime.filecache.FileCache
@@ -61,6 +62,7 @@ import org.apache.flink.runtime.net.NetUtils
 import org.apache.flink.runtime.process.ProcessReaper
 import org.apache.flink.runtime.security.SecurityUtils
 import org.apache.flink.runtime.security.SecurityUtils.FlinkSecuredRunner
+import org.apache.flink.runtime.util.event.EventListener
 import org.apache.flink.runtime.util.{MathUtils, EnvironmentInformation}
 
 import scala.concurrent._
@@ -399,6 +401,8 @@ extends Actor with ActorLogMessages with ActorSynchronousLogging {
           case None =>
             log.debug(s"Cannot find task $taskExecutionId to respond with partition state.")
         }
+
+      case TaskUserEvent(executionID, event) => handleTaskUserEventMessage(executionID, event)
     }
   }
 
@@ -916,6 +920,34 @@ extends Actor with ActorLogMessages with ActorSynchronousLogging {
     }
     else {
       log.error(s"Cannot find task with ID $executionID to unregister.")
+    }
+  }
+
+  /**
+   * Handler for messages related to custom events.
+   */
+  private def handleTaskUserEventMessage(attemptID: ExecutionAttemptID, event: TaskEvent): Unit = {
+
+    LOG.debug("TaskManager received custom task event {} from job manager.",
+      event.getClass.getSimpleName)
+
+    runningTasks.get(attemptID) match {
+      case Some(i) =>
+        if (i.getExecutionState == ExecutionState.RUNNING) {
+          i.getEnvironment.getInvokable match {
+            case eventListener: EventListener[TaskEvent] =>
+              new Thread(new Runnable {
+                override def run(): Unit =
+                  eventListener.onEvent(event)
+              }).start()
+
+            case _ => LOG.error(
+              "Taskmanager received a user event for non event listener task {}", attemptID)
+          }
+        }
+
+      case None =>
+        LOG.debug("Taskmanager received a user event for unknown task {}", attemptID)
     }
   }
 

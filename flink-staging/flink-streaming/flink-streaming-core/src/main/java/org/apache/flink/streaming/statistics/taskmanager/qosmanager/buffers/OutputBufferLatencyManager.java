@@ -18,14 +18,18 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmanager.buffers;
 
+import akka.actor.ActorRef;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.messages.TaskMessages;
 import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
 import org.apache.flink.streaming.statistics.message.action.SetOutputBufferLifetimeTargetAction;
+import org.apache.flink.streaming.statistics.message.action.SetOutputBufferLifetimeTargetEvent;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosConstraintViolationListener;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosSequenceLatencySummary;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.EdgeQosData;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosEdge;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGraphMember;
+import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosVertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -175,15 +179,15 @@ public class OutputBufferLatencyManager {
 	private void setTargetOutputBufferLatency(QosEdge edge, int targetObl)
 			throws InterruptedException {
 
-		SetOutputBufferLifetimeTargetAction action = new SetOutputBufferLifetimeTargetAction(
-				edge.getOutputGate().getVertex().getID(),
+		QosVertex vertex = edge.getOutputGate().getVertex();
+		SetOutputBufferLifetimeTargetEvent event = new SetOutputBufferLifetimeTargetEvent(
+				vertex.getID(),
 				edge.getReporterID().getIntermediateResultPartitionID(),
-				edge.getReporterID().getConsumedSubpartitionIndex(),
 				targetObl);
 
 		LOG.warn("TargetOutputBufferLatency update: {} -> {}.", edge, targetObl);
 
-//		TODO
-//		edge.getOutputGate().getVertex().getExecutingInstance().getTaskManager().tell();
+		ActorRef tm = vertex.getExecutingInstance().getTaskManager();
+		tm.tell(new TaskMessages.TaskUserEvent(vertex.getID(), event), ActorRef.noSender());
 	}
 }

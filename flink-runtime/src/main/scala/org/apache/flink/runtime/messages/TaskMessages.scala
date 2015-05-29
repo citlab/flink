@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.messages
 
 import org.apache.flink.runtime.deployment.{InputChannelDeploymentDescriptor, TaskDeploymentDescriptor}
+import org.apache.flink.runtime.event.task.{TaskEvent, AbstractEvent}
 import org.apache.flink.runtime.execution.ExecutionState
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID
 import org.apache.flink.runtime.jobgraph.{IntermediateDataSetID, IntermediateResultPartitionID}
@@ -160,6 +161,12 @@ object TaskMessages {
     def this(executionID: ExecutionAttemptID, success: Boolean) = this(executionID, success, "")
   }
 
+
+  // --------------------------------------------------------------------------
+  //  Task specific Messages
+  // --------------------------------------------------------------------------
+
+  case class TaskUserEvent(executionID: ExecutionAttemptID, event: TaskEvent) extends TaskMessage
 
   // --------------------------------------------------------------------------
   //  Utility Functions
