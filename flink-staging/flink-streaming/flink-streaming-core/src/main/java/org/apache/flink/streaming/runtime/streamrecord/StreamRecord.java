@@ -21,12 +21,13 @@ import java.io.Serializable;
 
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple;
+import org.apache.flink.streaming.statistics.types.AbstractTaggableRecord;
 
 /**
  * Object for wrapping a tuple or other object with ID used for sending records
  * between streaming task in Apache Flink stream processing.
  */
-public class StreamRecord<T> implements Serializable {
+public class StreamRecord<T> extends AbstractTaggableRecord implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	private T streamObject;
