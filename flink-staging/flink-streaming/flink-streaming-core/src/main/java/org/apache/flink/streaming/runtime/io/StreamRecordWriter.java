@@ -109,6 +109,10 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 
 					buffer = writer.getBufferProvider().requestBufferBlocking();
 					result = serializer.setNextBuffer(buffer);
+
+					if (qosCallback != null) {
+						qosCallback.outputBufferAllocated(targetChannel);
+					}
 				}
 			}
 		}
