@@ -417,9 +417,12 @@ public class StreamConfig implements Serializable {
 
 	public void addQosReporterConfigs(QosReporterConfig reporterConfig) {
 		List<QosReporterConfig> reporterConfigs = getQosReporterConfigs();
-		reporterConfigs.add(reporterConfig);
-		config.setBytes(QOS_REPORTER_CONFIGS,
-				SerializationUtils.serialize((ArrayList) reporterConfigs));
+
+		if (!reporterConfigs.contains(reporterConfig)) {
+			reporterConfigs.add(reporterConfig);
+			config.setBytes(QOS_REPORTER_CONFIGS,
+					SerializationUtils.serialize((ArrayList) reporterConfigs));
+		}
 	}
 
 	@SuppressWarnings("unchecked")

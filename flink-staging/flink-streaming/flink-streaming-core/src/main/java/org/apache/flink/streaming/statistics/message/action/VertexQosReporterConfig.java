@@ -168,6 +168,21 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 				+ ", groupVertex=" + this.groupVertexID + ", " + this.samplingStrategy + ")";
 	}
 
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof VertexQosReporterConfig) {
+			VertexQosReporterConfig other = (VertexQosReporterConfig) obj;
+			return this.groupVertexID.equals(other.groupVertexID)
+					&& this.inputGateIndex == other.inputGateIndex
+					&& this.inputDataSetID.equals(other.inputDataSetID)
+					&& this.outputGateIndex == other.outputGateIndex
+					&& this.outputDataSetID.equals(other.outputDataSetID);
+
+		} else {
+			return false;
+		}
+	}
+
 	public static VertexQosReporterConfig fromSequenceElement(AbstractJobVertex vertex, SequenceElement element) {
 		if (element.getInputGateIndex() >= 0 && element.getOutputGateIndex() >= 0) {
 			return new VertexQosReporterConfig(

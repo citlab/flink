@@ -91,6 +91,21 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 				+ ", dataSet: " + this.intermediateDataSetID + ")";
 	}
 
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof EdgeQosReporterConfig) {
+			EdgeQosReporterConfig other = (EdgeQosReporterConfig) obj;
+
+			return this.deploymentSide.equals(other.deploymentSide)
+					&& this.intermediateDataSetID.equals(other.intermediateDataSetID)
+					&& this.inputGateIndex == other.inputGateIndex
+					&& this.outputGateIndex == other.outputGateIndex;
+
+		} else {
+			return false;
+		}
+	}
+
 	public static EdgeQosReporterConfig sourceTaskConfig(
 			IntermediateDataSetID intermediateDataSetID,
 			int outputGateIndex, int inputGateIndex, String name) {
