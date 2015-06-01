@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.api.writer.RecordWriter;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.io.network.api.writer.RoundRobinChannelSelector;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.util.event.EventListener;
 import org.apache.flink.streaming.statistics.message.action.SetOutputBufferLifetimeTargetEvent;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.OutputGateQosReportingListener;
@@ -117,8 +118,15 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 			}
 		}
 
+		// TODO: channel[0] ?
 		if (qosCallback != null && record instanceof AbstractTaggableRecord) {
 			qosCallback.recordEmitted(channels[0], (AbstractTaggableRecord) record);
+
+		} else if (qosCallback != null && record instanceof SerializationDelegate) {
+			if (((SerializationDelegate) record).getInstance() instanceof AbstractTaggableRecord) {
+				qosCallback.recordEmitted(channels[0],
+						(AbstractTaggableRecord) ((SerializationDelegate)record).getInstance());
+			}
 		}
 	}
 
