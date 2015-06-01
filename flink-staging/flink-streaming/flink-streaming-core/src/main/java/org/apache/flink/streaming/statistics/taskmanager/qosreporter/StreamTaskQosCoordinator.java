@@ -148,7 +148,7 @@ public class StreamTaskQosCoordinator {
 				EdgeQosReporterConfig edgeConfig = (EdgeQosReporterConfig) config;
 
 				int inputGateIndex = edgeConfig.getInputGateIndex(); // must be -1 or 0
-				if (inputGateIndex == inputIndex) {
+				if (edgeConfig.isTargetTaskConfig() && inputGateIndex == inputIndex) {
 					InputGateReporterManager inputGateReporter = inputGateReporters[inputIndex];
 					QosReportingListenerHelper.listenToChannelLatenciesOnInputGate(input, inputGateReporter);
 				}
@@ -176,7 +176,7 @@ public class StreamTaskQosCoordinator {
 				EdgeQosReporterConfig edgeConfig = (EdgeQosReporterConfig) config;
 
 				int outputGateIndex = edgeConfig.getOutputGateIndex();
-				if (outputGateIndex == outputIndex) {
+				if (edgeConfig.isSourceTaskConfig() && outputGateIndex == outputIndex) {
 					OutputGateReporterManager outputGateReporter = outputGateReporters[outputGateIndex];
 					QosReportingListenerHelper.listenToOutputChannelStatisticsOnOutputGate(writer, outputGateReporter);
 				}
@@ -205,6 +205,8 @@ public class StreamTaskQosCoordinator {
 	private void installEdgeStatisticsReporters(EdgeQosReporterConfig config) {
 		IntermediateDataSetID dataSetID = config.getIntermediateDataSetID();
 		boolean installed = false;
+
+		LOG.debug("Installing edge qos reporter on {} with config {}", task.getName(), config);
 
 		if (config.isSourceTaskConfig()) {
 			int outputGateIndex = config.getOutputGateIndex();
