@@ -56,7 +56,6 @@ public class QosReportingListenerHelper {
 						recordsReadFromBuffer);
 			}
 		};
-		input.setQosCallback(listener);
 
 		InputGateQosReportingListener oldListener = input.getQosCallback();
 		if (oldListener != null) {
@@ -85,7 +84,6 @@ public class QosReportingListenerHelper {
 				// nothing to do
 			}
 		};
-		writer.setQosCallback(listener);
 
 		OutputGateQosReportingListener oldListener = writer.getQosCallback();
 
@@ -119,7 +117,6 @@ public class QosReportingListenerHelper {
 				// nothing to do
 			}
 		};
-		input.setQosCallback(listener);
 
 		InputGateQosReportingListener oldListener = input.getQosCallback();
 		if (oldListener != null) {
@@ -148,7 +145,6 @@ public class QosReportingListenerHelper {
 				outputGateReporter.outputBufferAllocated(channelIndex);
 			}
 		};
-		writer.setQosCallback(listener);
 
 		OutputGateQosReportingListener oldListener = writer.getQosCallback();
 
