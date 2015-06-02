@@ -379,7 +379,18 @@ public class QosModel {
 		QosVertex targetQosVertex = targetGroupVertex.getMember(targetTaskIndex);
 
 		QosGate outputGate = sourceQosVertex.getOutputGate(toProcess.getOutputGateIndex());
+		if (outputGate == null) {
+			outputGate = toProcess.toOutputGate();
+			sourceQosVertex.setOutputGate(outputGate);
+			sourceQosVertex.getQosData().prepareForReportsOnOutputGate(toProcess.getOutputGateIndex());
+		}
+
 		QosGate inputGate = targetQosVertex.getInputGate(toProcess.getInputGateIndex());
+		if (inputGate == null) {
+			inputGate = toProcess.toInputGate();
+			targetQosVertex.setInputGate(inputGate);
+			targetQosVertex.getQosData().prepareForReportsOnInputGate(toProcess.getInputGateIndex());
+		}
 
 		QosEdge qosEdge = new QosEdge(reporterID);
 		qosEdge.setOutputGate(outputGate);

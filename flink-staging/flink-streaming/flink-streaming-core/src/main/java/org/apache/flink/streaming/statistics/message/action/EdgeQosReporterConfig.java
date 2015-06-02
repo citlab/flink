@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.statistics.message.action;
 
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGate;
 
 /**
  * Describes a Qos reporter role for an edge.
@@ -105,6 +106,15 @@ public class EdgeQosReporterConfig implements QosReporterConfig {
 			return false;
 		}
 	}
+
+	public QosGate toInputGate() {
+		return new QosGate(QosGate.GateType.INPUT_GATE, this.intermediateDataSetID, this.inputGateIndex);
+	}
+
+	public QosGate toOutputGate() {
+		return new QosGate(QosGate.GateType.OUTPUT_GATE, this.intermediateDataSetID, this.outputGateIndex);
+	}
+
 
 	public static EdgeQosReporterConfig sourceTaskConfig(
 			IntermediateDataSetID intermediateDataSetID,
