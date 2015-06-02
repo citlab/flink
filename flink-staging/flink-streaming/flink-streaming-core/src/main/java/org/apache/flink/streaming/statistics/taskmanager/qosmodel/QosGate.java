@@ -18,10 +18,10 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmodel;
 
-import java.util.ArrayList;
-
-import org.apache.flink.streaming.statistics.util.SparseDelegateIterable;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.streaming.statistics.util.SparseDelegateIterable;
+
+import java.util.ArrayList;
 
 /**
  * This class models an input or output gate of a Qos vertex as part of a Qos
@@ -33,14 +33,14 @@ import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
  */
 public class QosGate {
 
-	private IntermediateDataSetID intermediateDataSetID;
+	private final IntermediateDataSetID intermediateDataSetID;
 
-	private int gateIndex;
+	private final int gateIndex;
 
 	/**
 	 * Sparse list of edges, which means this list may contain null entries.
 	 */
-	private ArrayList<QosEdge> edges;
+	private final ArrayList<QosEdge> edges;
 
 	private QosVertex vertex;
 
@@ -48,7 +48,7 @@ public class QosGate {
 		INPUT_GATE, OUTPUT_GATE;
 	}
 
-	private GateType gateType;
+	private final GateType gateType;
 
 	private int noOfEdges;
 
@@ -56,7 +56,8 @@ public class QosGate {
 	 * Initializes QosGate.
 	 *
 	 */
-	public QosGate(IntermediateDataSetID intermediateDataSetID, int gateIndex) {
+	public QosGate(GateType gateType, IntermediateDataSetID intermediateDataSetID, int gateIndex) {
+		this.gateType = gateType;
 		this.intermediateDataSetID = intermediateDataSetID;
 		this.gateIndex = gateIndex;
 		this.edges = new ArrayList<QosEdge>();
@@ -73,14 +74,6 @@ public class QosGate {
 
 	public void setVertex(QosVertex vertex) {
 		this.vertex = vertex;
-	}
-
-	public void setGateType(GateType gateType) {
-		this.gateType = gateType;
-	}
-
-	public GateType getGateType() {
-		return this.gateType;
 	}
 
 	public boolean isInputGate() {
@@ -133,9 +126,5 @@ public class QosGate {
 
 	public QosVertex getVertex() {
 		return this.vertex;
-	}
-
-	public QosGate cloneWithoutEdgesAndVertex() {
-		return new QosGate(this.intermediateDataSetID, this.gateIndex);
 	}
 }

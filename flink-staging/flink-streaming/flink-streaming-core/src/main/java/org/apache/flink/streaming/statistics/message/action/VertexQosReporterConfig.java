@@ -114,11 +114,11 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 	}
 
 	public QosGate toInputGate() {
-		return new QosGate(this.inputDataSetID, this.inputGateIndex);
+		return new QosGate(QosGate.GateType.INPUT_GATE, this.inputDataSetID, this.inputGateIndex);
 	}
 
 	public QosGate toOutputGate() {
-		return new QosGate(this.outputDataSetID, this.outputGateIndex);
+		return new QosGate(QosGate.GateType.OUTPUT_GATE, this.outputDataSetID, this.outputGateIndex);
 	}
 
 	private void writeObject(ObjectOutputStream out) throws IOException {

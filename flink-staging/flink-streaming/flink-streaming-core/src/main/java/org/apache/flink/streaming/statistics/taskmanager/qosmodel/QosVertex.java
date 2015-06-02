@@ -78,12 +78,15 @@ public class QosVertex implements QosGraphMember {
 	}
 
 	public void setInputGate(QosGate inputGate) {
+		if (!inputGate.isInputGate()) {
+			throw new RuntimeException("Input gate expected.");
+		}
+
 		if (inputGate.getGateIndex() >= this.inputGates.size()) {
 			this.fillWithNulls(this.inputGates, inputGate.getGateIndex() + 1);
 		}
 
 		inputGate.setVertex(this);
-		inputGate.setGateType(GateType.INPUT_GATE);
 		this.inputGates.set(inputGate.getGateIndex(), inputGate);
 	}
 
@@ -96,12 +99,15 @@ public class QosVertex implements QosGraphMember {
 	}
 
 	public void setOutputGate(QosGate outputGate) {
+		if (!outputGate.isOutputGate()) {
+			throw new RuntimeException("Output gate expected.");
+		}
+
 		if (outputGate.getGateIndex() >= this.outputGates.size()) {
 			this.fillWithNulls(this.outputGates, outputGate.getGateIndex() + 1);
 		}
 
 		outputGate.setVertex(this);
-		outputGate.setGateType(GateType.OUTPUT_GATE);
 		this.outputGates.set(outputGate.getGateIndex(), outputGate);
 	}
 
