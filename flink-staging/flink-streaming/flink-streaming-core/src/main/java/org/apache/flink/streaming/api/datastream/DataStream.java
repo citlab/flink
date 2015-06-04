@@ -695,7 +695,7 @@ public class DataStream<OUT> {
 	 * Initiates a temporal Join transformation. <br/>
 	 * A temporal Join transformation joins the elements of two
 	 * {@link DataStream}s on key equality over a specified time window.</br>
-	 *
+	 * 
 	 * This method returns a {@link StreamJoinOperator} on which the
 	 * {@link StreamJoinOperator#onWindow(long, java.util.concurrent.TimeUnit)}
 	 * should be called to define the window, and then the
@@ -711,7 +711,7 @@ public class DataStream<OUT> {
 	 *            The other DataStream with which this DataStream is joined.
 	 * @return A {@link StreamJoinOperator} to continue the definition of the
 	 *         Join transformation.
-	 *
+	 * 
 	 */
 	public <IN2> StreamJoinOperator<OUT, IN2> join(DataStream<IN2> dataStreamToJoin) {
 		return new StreamJoinOperator<OUT, IN2>(this, dataStreamToJoin);
