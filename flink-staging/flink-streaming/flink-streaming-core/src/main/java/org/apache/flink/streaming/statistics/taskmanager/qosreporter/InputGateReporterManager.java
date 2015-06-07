@@ -91,10 +91,10 @@ public class InputGateReporterManager {
 			this.tagsReceived = 0;
 		}
 
-		public void update(TimestampTag tag, long now) {
+		public void update(long timestamp, long now) {
 			// need to take max() because timestamp diffs can be below zero
 			// due to clockdrift
-			this.accumulatedLatency += Math.max(0, now - tag.getTimestamp());
+			this.accumulatedLatency += Math.max(0, now - timestamp);
 			this.tagsReceived++;
 		}
 	}
@@ -113,15 +113,14 @@ public class InputGateReporterManager {
 				new EdgeLatencyReporter[noOfInputChannels]);
 	}
 
-	public void reportLatencyIfNecessary(int channelIndex,
-			TimestampTag timestampTag) {
+	public void reportLatencyIfNecessary(int channelIndex, long timestamp) {
 
 		EdgeLatencyReporter info = this.reportersByChannelIndexInRuntimeGate
 				.get(channelIndex);
 
 		if (info != null) {
 			long now = System.currentTimeMillis();
-			info.update(timestampTag, now);
+			info.update(timestamp, now);
 			info.sendReportIfDue(now);
 		}
 	}

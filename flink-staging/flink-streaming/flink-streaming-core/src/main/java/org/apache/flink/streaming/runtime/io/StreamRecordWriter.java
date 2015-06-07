@@ -29,7 +29,7 @@ import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.util.event.EventListener;
 import org.apache.flink.streaming.statistics.message.action.SetOutputBufferLifetimeTargetEvent;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.OutputGateQosReportingListener;
-import org.apache.flink.streaming.statistics.types.AbstractTaggableRecord;
+import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,13 +119,13 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 		}
 
 		// TODO: channel[0] ?
-		if (qosCallback != null && record instanceof AbstractTaggableRecord) {
-			qosCallback.recordEmitted(channels[0], (AbstractTaggableRecord) record);
+		if (qosCallback != null && record instanceof TimeStampedRecord) {
+			qosCallback.recordEmitted(channels[0], (TimeStampedRecord) record);
 
 		} else if (qosCallback != null && record instanceof SerializationDelegate) {
-			if (((SerializationDelegate) record).getInstance() instanceof AbstractTaggableRecord) {
+			if (((SerializationDelegate) record).getInstance() instanceof TimeStampedRecord) {
 				qosCallback.recordEmitted(channels[0],
-						(AbstractTaggableRecord) ((SerializationDelegate)record).getInstance());
+						(TimeStampedRecord) ((SerializationDelegate) record).getInstance());
 			}
 		}
 	}

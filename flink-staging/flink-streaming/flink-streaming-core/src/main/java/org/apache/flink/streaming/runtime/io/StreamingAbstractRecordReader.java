@@ -32,7 +32,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.streaming.runtime.tasks.StreamingSuperstep;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.InputGateQosReportingListener;
-import org.apache.flink.streaming.statistics.types.AbstractTaggableRecord;
+import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,8 +96,8 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 
 				if (result.isFullRecord()) {
 					// TODO target AbstractTaggableRecord
-					if (qosCallback != null && target instanceof AbstractTaggableRecord) {
-						qosCallback.recordReceived(currentRecordDeserializerIndex, ((AbstractTaggableRecord) target));
+					if (qosCallback != null && target instanceof TimeStampedRecord) {
+						qosCallback.recordReceived(currentRecordDeserializerIndex, ((TimeStampedRecord) target));
 					}
 					return true;
 				}

@@ -18,7 +18,7 @@
  */
 package org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener;
 
-import org.apache.flink.streaming.statistics.types.AbstractTaggableRecord;
+import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
 
 /**
  * Callback interface used by the
@@ -32,7 +32,7 @@ public interface OutputGateQosReportingListener {
 
 	void outputBufferSent(int channelIndex, long currentAmountTransmitted);
 
-	void recordEmitted(int outputChannel, AbstractTaggableRecord record);
+	void recordEmitted(int outputChannel, TimeStampedRecord record);
 
 	void outputBufferAllocated(int channelIndex);
 }

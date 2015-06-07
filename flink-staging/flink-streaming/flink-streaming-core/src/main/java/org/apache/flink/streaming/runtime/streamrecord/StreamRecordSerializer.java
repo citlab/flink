@@ -57,6 +57,7 @@ public final class StreamRecordSerializer<T> extends TypeSerializer<StreamRecord
 		try {
 			StreamRecord<T> t = new StreamRecord<T>();
 			t.isTuple = isTuple;
+			t.setTimestamp(0L);
 			t.setObject(typeSerializer.createInstance());
 			return t;
 		} catch (Exception e) {
@@ -68,6 +69,7 @@ public final class StreamRecordSerializer<T> extends TypeSerializer<StreamRecord
 	public StreamRecord<T> copy(StreamRecord<T> from) {
 		StreamRecord<T> rec = new StreamRecord<T>();
 		rec.isTuple = from.isTuple;
+		rec.setTimestamp(from.getTimestamp());
 		rec.setObject(typeSerializer.copy(from.getObject()));
 		return rec;
 	}
@@ -75,6 +77,7 @@ public final class StreamRecordSerializer<T> extends TypeSerializer<StreamRecord
 	@Override
 	public StreamRecord<T> copy(StreamRecord<T> from, StreamRecord<T> reuse) {
 		reuse.isTuple = from.isTuple;
+		reuse.setTimestamp(from.getTimestamp());
 		reuse.setObject(typeSerializer.copy(from.getObject(), reuse.getObject()));
 		return reuse;
 	}
@@ -86,6 +89,13 @@ public final class StreamRecordSerializer<T> extends TypeSerializer<StreamRecord
 
 	@Override
 	public void serialize(StreamRecord<T> value, DataOutputView target) throws IOException {
+		if (value.hasTimestamp()) {
+			target.writeBoolean(true);
+			target.writeLong(value.getTimestamp());
+		} else {
+			target.writeBoolean(false);
+		}
+
 		typeSerializer.serialize(value.getObject(), target);
 	}
 	
@@ -93,12 +103,14 @@ public final class StreamRecordSerializer<T> extends TypeSerializer<StreamRecord
 	public StreamRecord<T> deserialize(DataInputView source) throws IOException {
 		StreamRecord<T> record = new StreamRecord<T>();
 		record.isTuple = this.isTuple;
+		record.setTimestamp(source.readBoolean() ? source.readLong() : 0L);
 		record.setObject(typeSerializer.deserialize(source));
 		return record;
 	}
 
 	@Override
 	public StreamRecord<T> deserialize(StreamRecord<T> reuse, DataInputView source) throws IOException {
+		reuse.setTimestamp(source.readBoolean() ? source.readLong() : 0L);
 		reuse.setObject(typeSerializer.deserialize(reuse.getObject(), source));
 		return reuse;
 	}

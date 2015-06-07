@@ -21,17 +21,20 @@ import java.io.Serializable;
 
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple;
-import org.apache.flink.streaming.statistics.types.AbstractTaggableRecord;
+import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
 
 /**
  * Object for wrapping a tuple or other object with ID used for sending records
  * between streaming task in Apache Flink stream processing.
  */
-public class StreamRecord<T> extends AbstractTaggableRecord implements Serializable {
+public class StreamRecord<T> implements Serializable, TimeStampedRecord {
 	private static final long serialVersionUID = 1L;
 
 	private T streamObject;
+
 	public boolean isTuple;
+
+	private long timestamp = 0L;
 
 	/**
 	 * Creates an empty StreamRecord
@@ -94,6 +97,21 @@ public class StreamRecord<T> extends AbstractTaggableRecord implements Serializa
 	public StreamRecord<T> setObject(T object) {
 		this.streamObject = object;
 		return this;
+	}
+
+	@Override
+	public long getTimestamp() {
+		return timestamp;
+	}
+
+	@Override
+	public boolean hasTimestamp() {
+		return timestamp > 0;
+	}
+
+	@Override
+	public void setTimestamp(long timestamp) {
+		this.timestamp = timestamp;
 	}
 
 	@Override

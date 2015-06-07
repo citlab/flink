@@ -22,9 +22,8 @@ import org.apache.flink.streaming.runtime.io.StreamRecordWriter;
 import org.apache.flink.streaming.runtime.io.StreamingAbstractRecordReader;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.InputGateReporterManager;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.OutputGateReporterManager;
-import org.apache.flink.streaming.statistics.taskmanager.qosreporter.TimestampTag;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex.VertexStatisticsReportManager;
-import org.apache.flink.streaming.statistics.types.AbstractTaggableRecord;
+import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
 
 /**
  * Utility class that creates {@link InputGateQosReportingListener}
@@ -41,7 +40,7 @@ public class QosReportingListenerHelper {
 
 		InputGateQosReportingListener listener = new InputGateQosReportingListener() {
 			@Override
-			public void recordReceived(int inputChannel, AbstractTaggableRecord record) {
+			public void recordReceived(int inputChannel, TimeStampedRecord record) {
 				vertexStatisticsManager.recordReceived(inputChannel);
 			}
 
@@ -75,7 +74,7 @@ public class QosReportingListenerHelper {
 			}
 
 			@Override
-			public void recordEmitted(int outputChannel, AbstractTaggableRecord record) {
+			public void recordEmitted(int outputChannel, TimeStampedRecord record) {
 				vertexStatisticsManager.recordEmitted(outputGateIndex);
 			}
 
@@ -99,11 +98,9 @@ public class QosReportingListenerHelper {
 
 		InputGateQosReportingListener listener = new InputGateQosReportingListener() {
 			@Override
-			public void recordReceived(int inputChannel, AbstractTaggableRecord record) {
-				TimestampTag timestampTag = (TimestampTag) record.getTag();
-
-				if (timestampTag != null) {
-					inputGateReporter.reportLatencyIfNecessary(inputChannel, timestampTag);
+			public void recordReceived(int inputChannel, TimeStampedRecord record) {
+				if (record.hasTimestamp()) {
+					inputGateReporter.reportLatencyIfNecessary(inputChannel, record.getTimestamp());
 				}
 			}
 
@@ -136,7 +133,7 @@ public class QosReportingListenerHelper {
 			}
 
 			@Override
-			public void recordEmitted(int outputChannel, AbstractTaggableRecord record) {
+			public void recordEmitted(int outputChannel, TimeStampedRecord record) {
 				outputGateReporter.recordEmitted(outputChannel, record);
 			}
 
@@ -160,7 +157,7 @@ public class QosReportingListenerHelper {
 
 		return new InputGateQosReportingListener() {
 			@Override
-			public void recordReceived(int inputChannel, AbstractTaggableRecord record) {
+			public void recordReceived(int inputChannel, TimeStampedRecord record) {
 				first.recordReceived(inputChannel, record);
 				second.recordReceived(inputChannel, record);
 			}
@@ -192,7 +189,7 @@ public class QosReportingListenerHelper {
 			}
 
 			@Override
-			public void recordEmitted(int outputChannel, AbstractTaggableRecord record) {
+			public void recordEmitted(int outputChannel, TimeStampedRecord record) {
 				first.recordEmitted(outputChannel, record);
 				second.recordEmitted(outputChannel, record);
 			}

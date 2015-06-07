@@ -22,7 +22,7 @@ import org.apache.flink.streaming.statistics.message.qosreport.EdgeStatistics;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.edge.OutputBufferLifetimeSampler;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.BernoulliSampleDesign;
-import org.apache.flink.streaming.statistics.types.AbstractTaggableRecord;
+import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -216,24 +216,17 @@ public class OutputGateReporterManager {
 					.addToNextReport(channelStatsMessage);
 		}
 
-		public void updateStatsAndTagRecordIfNecessary(
-				AbstractTaggableRecord record) {
+		public void updateStatsAndTagRecordIfNecessary(TimeStampedRecord record) {
 			this.recordsEmittedSinceLastReport++;
 			this.recordsSinceLastTag++;
 
 			boolean shouldSample = recordTaggingSampleDesign.shouldSample();
 			if (shouldSample) {
-				this.tagRecord(record);
+				record.setTimestamp(System.currentTimeMillis());
 				this.recordsSinceLastTag = 0;
 			} else {
-				record.setTag(null);
+				record.setTimestamp(0);
 			}
-		}
-
-		private void tagRecord(AbstractTaggableRecord record) {
-			TimestampTag tag = new TimestampTag();
-			tag.setTimestamp(System.currentTimeMillis());
-			record.setTag(tag);
 		}
 
 		public void outputBufferSent(long currentAmountTransmitted) {
@@ -258,7 +251,7 @@ public class OutputGateReporterManager {
 				new OutputChannelChannelStatisticsReporter[noOfOutputChannels]);
 	}
 
-	public void recordEmitted(int channelIndex, AbstractTaggableRecord record) {
+	public void recordEmitted(int channelIndex, TimeStampedRecord record) {
 		OutputChannelChannelStatisticsReporter outputChannelReporter = this.reportersByChannelIndexInRuntimeGate
 				.get(channelIndex);
 
