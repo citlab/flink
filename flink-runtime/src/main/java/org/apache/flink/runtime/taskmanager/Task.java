@@ -268,6 +268,7 @@ public class Task implements Runnable {
 			this.producedPartitions[i] = new ResultPartition(
 					taskNameWithSubtasksAndId,
 					jobId,
+					desc.getResultId(),
 					partitionId,
 					desc.getPartitionType(),
 					desc.getNumberOfSubpartitions(),

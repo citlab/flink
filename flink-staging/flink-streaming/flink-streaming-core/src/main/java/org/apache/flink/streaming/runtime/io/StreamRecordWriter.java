@@ -66,7 +66,7 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 		} else {
 			this.outputFlusher = new OutputFlusher();
 			outputFlusher.start();
-            writer.subscribeToEvent(this, SetOutputBufferLifetimeTargetEvent.class);
+			writer.subscribeToEvent(this, SetOutputBufferLifetimeTargetEvent.class);
 		}
 	}
 	

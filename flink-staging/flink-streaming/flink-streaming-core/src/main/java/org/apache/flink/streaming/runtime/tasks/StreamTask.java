@@ -42,14 +42,8 @@ import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.StatefulStreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperator;
-import org.apache.flink.streaming.runtime.io.CoReaderIterator;
-import org.apache.flink.streaming.runtime.io.IndexedReaderIterator;
-import org.apache.flink.streaming.runtime.streamrecord.StreamRecordSerializer;
 import org.apache.flink.streaming.statistics.message.action.SetOutputBufferLifetimeTargetEvent;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.StreamTaskQosCoordinator;
-import org.apache.flink.util.Collector;
-import org.apache.flink.util.MutableObjectIterator;
-import org.apache.flink.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -113,7 +107,7 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 			this.qosCoordinator = new StreamTaskQosCoordinator(this);
 			this.qosCoordinator.prepareQosReporting();
 		}
-    }
+	}
 
 	public String getName() {
 		return getEnvironment().getTaskName();

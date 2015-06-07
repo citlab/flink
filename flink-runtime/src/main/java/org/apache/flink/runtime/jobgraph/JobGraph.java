@@ -89,14 +89,8 @@ public class JobGraph implements Serializable {
 	
 	/** The settings for asynchronous snapshotting */
 	private JobSnapshottingSettings snapshotSettings;
-	
-	private boolean checkpointingEnabled = false;
-	
-	private long checkpointingInterval = 10000;
 
 	private boolean customStatisticsEnabled = false;
-
-	private long customStatisticsInterval = 7000;
 
 	private AbstractCentralStatisticsHandler customAbstractCentralStatisticsHandler;
 

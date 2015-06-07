@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.flink.api.common.ExecutionConfig;
@@ -166,7 +165,7 @@ public class StreamingJobGraphGenerator {
 	}
 
 	private void adjustChaining(int vertexId) {
-		StreamOperator<?, ?> invokable = streamGraph.getVertex(vertexId).getOperator();
+		StreamOperator invokable = streamGraph.getStreamNode(vertexId).getOperator();
 		if (invokable.getChainingStrategy() == ChainingStrategy.ALWAYS) {
 			invokable.setChainingStrategy(ChainingStrategy.HEAD);
 		}
