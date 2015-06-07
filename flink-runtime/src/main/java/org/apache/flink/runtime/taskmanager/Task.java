@@ -29,6 +29,7 @@ import org.apache.flink.runtime.broadcast.BroadcastVariableManager;
 import org.apache.flink.runtime.deployment.InputGateDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.ResultPartitionDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
+import org.apache.flink.runtime.event.task.TaskEvent;
 import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.execution.ExecutionState;
@@ -55,6 +56,7 @@ import org.apache.flink.runtime.messages.TaskMessages.TaskInFinalState;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.runtime.state.StateUtils;
 import org.apache.flink.runtime.util.SerializedValue;
+import org.apache.flink.runtime.util.event.EventListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.concurrent.duration.FiniteDuration;
@@ -914,6 +916,31 @@ public class Task implements Runnable {
 		}
 		else {
 			LOG.debug("Ignoring checkpoint commit notification for non-running task.");
+		}
+	}
+
+	/**
+	 * If invokable supports task events forward given event async into invokable.
+	 *
+	 * @param event Forwarded to invokable if supported, dropped otherwise.
+	 */
+	public void forwardEvent(final TaskEvent event) {
+		if (this.invokable instanceof EventListener) {
+			Runnable runnable = new Runnable() {
+				@Override
+				public void run() {
+					try {
+						((EventListener) invokable).onEvent(event);
+					} catch (Throwable t) {
+						LOG.error("Event forwarding failed.", t);
+					}
+				}
+			};
+			executeAsyncCallRunnable(runnable, "Task event forwarding");
+
+		} else {
+			LOG.warn("Received unsupported user event for non event listener task: {}",
+					event.getClass().getSimpleName());
 		}
 	}
 

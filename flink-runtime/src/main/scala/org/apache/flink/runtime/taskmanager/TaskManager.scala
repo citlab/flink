@@ -36,6 +36,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import grizzled.slf4j.Logger
 
 import org.apache.flink.configuration._
+import org.apache.flink.runtime.execution.ExecutionState
 import org.apache.flink.runtime.messages.checkpoint.{ConfirmCheckpoint, TriggerCheckpoint, AbstractCheckpointMessage}
 import org.apache.flink.runtime.{StreamingMode, ActorSynchronousLogging, ActorLogMessages}
 import org.apache.flink.runtime.akka.AkkaUtils
@@ -928,26 +929,17 @@ extends Actor with ActorLogMessages with ActorSynchronousLogging {
    */
   private def handleTaskUserEventMessage(attemptID: ExecutionAttemptID, event: TaskEvent): Unit = {
 
-    LOG.debug("TaskManager received custom task event {} from job manager.",
-      event.getClass.getSimpleName)
+    log.debug(s"TaskManager received custom task event ${event.getClass.getSimpleName} " +
+      s" from job manager.")
 
-    runningTasks.get(attemptID) match {
+    Option(runningTasks.get(attemptID)) match {
       case Some(i) =>
         if (i.getExecutionState == ExecutionState.RUNNING) {
-          i.getEnvironment.getInvokable match {
-            case eventListener: EventListener[TaskEvent] =>
-              new Thread(new Runnable {
-                override def run(): Unit =
-                  eventListener.onEvent(event)
-              }).start()
-
-            case _ => LOG.error(
-              "Taskmanager received a user event for non event listener task {}", attemptID)
-          }
+          i.forwardEvent(event)
         }
 
       case None =>
-        LOG.debug("Taskmanager received a user event for unknown task {}", attemptID)
+        log.debug(s"Taskmanager received a user event for unknown task ${attemptID}")
     }
   }
 
