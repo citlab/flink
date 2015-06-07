@@ -19,7 +19,7 @@ package org.apache.flink.runtime.statistics
 
 import akka.actor._
 import org.apache.flink.api.common.JobID
-import org.apache.flink.runtime.ActorLogMessages
+import org.apache.flink.runtime.{ActorSynchronousLogging, ActorLogMessages}
 import org.apache.flink.runtime.executiongraph.ExecutionGraph
 import org.apache.flink.runtime.jobgraph.JobStatus
 import org.apache.flink.runtime.messages.ExecutionGraphMessages.{ExecutionStateChanged, JobStatusChanged}
@@ -31,7 +31,7 @@ import org.apache.flink.runtime.messages.ExecutionGraphMessages.{ExecutionStateC
  */
 class CentralStatisticsActor(val executionGraph: ExecutionGraph,
                              val handler: AbstractCentralStatisticsHandler)
-      extends Actor with ActorLogMessages with ActorLogging {
+      extends Actor with ActorLogMessages with ActorSynchronousLogging {
 
   override def preStart(): Unit = {
     handler.open(executionGraph.getJobID, executionGraph)
@@ -52,6 +52,9 @@ class CentralStatisticsActor(val executionGraph: ExecutionGraph,
           context.stop(self)
         case _ =>
       }
+
+    case PoisonPill =>
+      context.stop(self)
   }
 
   override def postStop(): Unit = {
@@ -60,10 +63,10 @@ class CentralStatisticsActor(val executionGraph: ExecutionGraph,
 }
 
 object CentralStatisticsActor {
-  def spawn(context: ActorContext, executionGraph: ExecutionGraph,
+  def spawn(actorSystem: ActorSystem, executionGraph: ExecutionGraph,
             handler: AbstractCentralStatisticsHandler): ActorRef = {
 
-    val ref = context.system.actorOf(Props(new CentralStatisticsActor(executionGraph, handler)))
+    val ref = actorSystem.actorOf(Props(new CentralStatisticsActor(executionGraph, handler)))
     executionGraph.registerJobStatusListener(ref)
     executionGraph.registerExecutionListener(ref)
     ref

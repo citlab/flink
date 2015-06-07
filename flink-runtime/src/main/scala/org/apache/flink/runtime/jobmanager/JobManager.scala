@@ -440,9 +440,7 @@ class JobManager(protected val flinkConfiguration: Configuration,
     case msg: StatisticReport =>
       currentJobs.get(msg.jobID) match {
         case Some((executionGraph,_)) =>
-          if (executionGraph.isCustomStatisticsEnabled) {
-            executionGraph.getStatisticsActor forward msg
-          }
+          executionGraph.forwardCustomStatistic(msg, context)
         case None => // ignore uknown jobs
       }
   }
@@ -506,11 +504,6 @@ class JobManager(protected val flinkConfiguration: Configuration,
         executionGraph.setDelayBeforeRetrying(delayBetweenRetries)
         executionGraph.setScheduleMode(jobGraph.getScheduleMode)
         executionGraph.setQueuedSchedulingAllowed(jobGraph.getAllowQueuedScheduling)
-
-        if (jobGraph.isCustomStatisticsEnabled) {
-          executionGraph.setCustomStatisticsEnabled(true)
-          executionGraph.setStatisticsHandler(jobGraph.getCustomAbstractCentralStatisticsHandler)
-        }
 
         // initialize the vertices that have a master initialization hook
         // file output formats create directories here, input formats create splits
@@ -579,6 +572,11 @@ class JobManager(protected val flinkConfiguration: Configuration,
             snapshotSettings.getCheckpointInterval, snapshotSettings.getCheckpointTimeout,
             triggerVertices, ackVertices, confirmVertices,
             context.system)
+        }
+
+        if (jobGraph.isCustomStatisticsEnabled) {
+          executionGraph.enableCustomStatistics(
+            context.system, jobGraph.getCustomAbstractCentralStatisticsHandler)
         }
 
         // get notified about job status changes

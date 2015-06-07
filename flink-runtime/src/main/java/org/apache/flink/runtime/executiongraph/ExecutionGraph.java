@@ -18,9 +18,11 @@
 
 package org.apache.flink.runtime.executiongraph;
 
+import akka.actor.ActorContext;
 import akka.actor.ActorRef;
 
 import akka.actor.ActorSystem;
+import akka.actor.PoisonPill;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.JobException;
@@ -37,9 +39,9 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobmanager.scheduler.Scheduler;
 import org.apache.flink.runtime.messages.ExecutionGraphMessages;
-import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.runtime.statistics.CentralStatisticsActor;
 import org.apache.flink.runtime.statistics.AbstractCentralStatisticsHandler;
+import org.apache.flink.runtime.statistics.StatisticReport;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.util.SerializableObject;
 import org.apache.flink.util.ExceptionUtils;
@@ -210,12 +212,6 @@ public class ExecutionGraph implements Serializable {
 
 	private ActorRef statisticsActor;
 
-	private AbstractCentralStatisticsHandler statisticsHandler;
-
-	public ExecutionGraph(JobID jobId, String jobName, Configuration jobConfig, FiniteDuration timeout) {
-		this(jobId, jobName, jobConfig, timeout, new ArrayList<BlobKey>());
-	}
-
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
 	// --------------------------------------------------------------------------------------------
@@ -297,22 +293,6 @@ public class ExecutionGraph implements Serializable {
 		return scheduleMode;
 	}
 
-	public boolean isCustomStatisticsEnabled() {
-		return customStatisticsEnabled;
-	}
-
-	public void setCustomStatisticsEnabled(boolean customStatisticsEnabled) {
-		this.customStatisticsEnabled = customStatisticsEnabled;
-	}
-
-	public void setStatisticsHandler(AbstractCentralStatisticsHandler statisticsHandler) {
-		this.statisticsHandler = statisticsHandler;
-	}
-
-	public ActorRef getStatisticsActor() {
-		return statisticsActor;
-	}
-
 	public void enableSnaphotCheckpointing(long interval, long checkpointTimeout,
 											List<ExecutionJobVertex> verticesToTrigger,
 											List<ExecutionJobVertex> verticesToWaitFor,
@@ -362,6 +342,34 @@ public class ExecutionGraph implements Serializable {
 
 	public CheckpointCoordinator getCheckpointCoordinator() {
 		return checkpointCoordinator;
+	}
+
+
+	public boolean isCustomStatisticsEnabled() {
+		return customStatisticsEnabled;
+	}
+
+	public void enableCustomStatistics(ActorSystem actorSystem,
+			AbstractCentralStatisticsHandler statisticsHandler) {
+
+		disableCustomStatistics();
+
+		customStatisticsEnabled = true;
+		statisticsActor = CentralStatisticsActor.spawn(actorSystem, this, statisticsHandler);
+	}
+
+	public void disableCustomStatistics() {
+		this.customStatisticsEnabled = false;
+		if (this.statisticsActor != null) {
+			this.statisticsActor.tell(PoisonPill.getInstance(), ActorRef.noSender());
+			this.statisticsActor = null;
+		}
+	}
+
+	public void forwardCustomStatistic(StatisticReport report, ActorContext context) {
+		if (isCustomStatisticsEnabled()) {
+			this.statisticsActor.forward(report, context);
+		}
 	}
 
 	private ExecutionVertex[] collectExecutionVertices(List<ExecutionJobVertex> jobVertices) {
@@ -551,10 +559,6 @@ public class ExecutionGraph implements Serializable {
 				case BACKTRACKING:
 					// go back from vertices that need computation to the ones we need to run
 					throw new JobException("BACKTRACKING is currently not supported as schedule mode.");
-			}
-
-			if (customStatisticsEnabled) {
-				statisticsActor = CentralStatisticsActor.spawn(parentContext, this, statisticsHandler);
 			}
 		}
 		else {
