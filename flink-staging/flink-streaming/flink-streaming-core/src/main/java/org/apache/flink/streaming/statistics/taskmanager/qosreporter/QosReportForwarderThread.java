@@ -18,11 +18,11 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosreporter;
 
-import akka.actor.ActorRef;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.execution.Environment;
-import org.apache.flink.runtime.statistics.StatisticReport;
+import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.statistics.CustomStatistic;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.statistics.message.qosreport.AbstractQosReportRecord;
 import org.apache.flink.streaming.statistics.message.qosreport.EdgeLatency;
@@ -35,8 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Iterator;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -60,15 +59,13 @@ public class QosReportForwarderThread extends Thread {
 
 	private final JobID jobID;
 
-	private final ActorRef jobManager;
-
 	private final long aggregationInterval;
 
 	private final int samplingProbability;
 
 	private volatile boolean isShuttingDown = false;
 
-	private final Set<Integer> registeredTasksInstances;
+	private final HashMap<ExecutionAttemptID, StreamTask> registeredTasksInstances;
 
 	/** Time until next report submission. */
 	private long reportDueTime;
@@ -79,9 +76,8 @@ public class QosReportForwarderThread extends Thread {
 
 	private final ArrayList<AbstractQosReportRecord> tmpRecords;
 
-	public QosReportForwarderThread(JobID jobID, ActorRef jobManager, Configuration jobConf) {
+	public QosReportForwarderThread(JobID jobID, Configuration jobConf) {
 		this.jobID = jobID;
-		this.jobManager = jobManager;
 
 		this.aggregationInterval = jobConf.getLong(
 				QosStatisticsConfig.AGGREGATION_INTERVAL_KEY,
@@ -90,7 +86,7 @@ public class QosReportForwarderThread extends Thread {
 				QosStatisticsConfig.SAMPLING_PROBABILITY_KEY,
 				QosStatisticsConfig.getSamplingProbabilityPercent());
 
-		this.registeredTasksInstances = new HashSet<Integer>();
+		this.registeredTasksInstances = new HashMap<ExecutionAttemptID, StreamTask>();
 
 		this.currentReport = new QosReport();
 		this.reportDueTime = System.currentTimeMillis();
@@ -113,7 +109,7 @@ public class QosReportForwarderThread extends Thread {
 				this.processPendingReportRecords();
 
 				if (!this.currentReport.isEmpty()) {
-					jobManager.tell(new StatisticReport(jobID, currentReport), ActorRef.noSender());
+					sendReport(currentReport);
 				}
 
 				shiftToNextReportingInterval();
@@ -130,6 +126,19 @@ public class QosReportForwarderThread extends Thread {
 
 	public int getSamplingProbability() {
 		return this.samplingProbability;
+	}
+
+	/**
+	 * Sends given report via first registered task environment to central statistics manager.
+	 */
+	private void sendReport(CustomStatistic report) {
+		Iterator<StreamTask> streamTasks = this.registeredTasksInstances.values().iterator();
+
+		if (streamTasks.hasNext()) {
+			streamTasks.next().getEnvironment().reportCustomStatistic(report);
+		} else {
+			LOG.warn("No tasks registered. Can't send report. Dropping current report.");
+		}
 	}
 
 	/**
@@ -193,15 +202,15 @@ public class QosReportForwarderThread extends Thread {
 	/**
 	 * This ensures that the forwarder thread is running.
 	 */
-	private void registerTask(StreamTask vertex) {
+	private void registerTask(StreamTask task) {
 		if (this.isShuttingDown) {
 			throw new RuntimeException("Can't register task after shutdown has called.");
 		}
 
-		this.registeredTasksInstances.add(vertex.getInstanceID());
+		this.registeredTasksInstances.put(task.getEnvironment().getExecutionId(), task);
 
 		LOG.info("{} running operators after opening operator {}.",
-				registeredTasksInstances.size(), vertex.getInstanceID());
+				registeredTasksInstances.size(), task.getEnvironment().getExecutionId());
 
 		ensureIsRunning();
 	}
@@ -211,7 +220,7 @@ public class QosReportForwarderThread extends Thread {
 	 */
 	public void unregisterTask(StreamTask vertex) {
 		synchronized (runningForwarder) {
-			this.registeredTasksInstances.remove(vertex.getInstanceID());
+			this.registeredTasksInstances.remove(vertex.getEnvironment().getExecutionId());
 
 			if (this.registeredTasksInstances.isEmpty()) {
 				runningForwarder.remove(this.jobID);
@@ -220,7 +229,7 @@ public class QosReportForwarderThread extends Thread {
 		}
 
 		LOG.info("{} running tasks left after removing task {}.",
-				registeredTasksInstances.size(), vertex.getInstanceID());
+				registeredTasksInstances.size(), vertex.getEnvironment().getExecutionId());
 	}
 
 	/**
@@ -239,9 +248,8 @@ public class QosReportForwarderThread extends Thread {
 			forwarder = runningForwarder.get(jobID);
 
 			if (forwarder == null) {
-				ActorRef jobManager = env.getJobManager();
 				Configuration jobConf = env.getJobConfiguration();
-				forwarder = new QosReportForwarderThread(jobID, jobManager, jobConf);
+				forwarder = new QosReportForwarderThread(jobID, jobConf);
 
 				runningForwarder.put(jobID, forwarder);
 			}

@@ -41,6 +41,7 @@ import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.memorymanager.DefaultMemoryManager;
 import org.apache.flink.runtime.memorymanager.MemoryManager;
 import org.apache.flink.runtime.state.StateHandle;
+import org.apache.flink.runtime.statistics.CustomStatistic;
 import org.apache.flink.types.Record;
 import org.apache.flink.util.MutableObjectIterator;
 import org.mockito.invocation.InvocationOnMock;
@@ -270,6 +271,11 @@ public class MockEnvironment implements Environment {
 
 	@Override
 	public void acknowledgeCheckpoint(long checkpointId, StateHandle<?> state) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public void reportCustomStatistic(CustomStatistic statistic) {
 		throw new UnsupportedOperationException();
 	}
 }

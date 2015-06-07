@@ -37,6 +37,8 @@ import org.apache.flink.runtime.memorymanager.MemoryManager;
 import org.apache.flink.runtime.messages.accumulators.ReportAccumulatorResult;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.state.StateHandle;
+import org.apache.flink.runtime.statistics.CustomStatistic;
+import org.apache.flink.runtime.statistics.StatisticReport;
 import org.apache.flink.runtime.util.SerializedValue;
 
 import java.io.IOException;
@@ -247,5 +249,10 @@ public class RuntimeEnvironment implements Environment {
 		
 		AcknowledgeCheckpoint message = new AcknowledgeCheckpoint(jobId, executionId, checkpointId, serializedState);
 		jobManagerActor.tell(message, ActorRef.noSender());
+	}
+
+	@Override
+	public void reportCustomStatistic(CustomStatistic statistic) {
+		jobManagerActor.tell(new StatisticReport(getJobID(), statistic), ActorRef.noSender());
 	}
 }

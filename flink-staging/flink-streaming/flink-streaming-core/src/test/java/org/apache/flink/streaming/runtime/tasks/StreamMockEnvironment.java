@@ -44,6 +44,7 @@ import org.apache.flink.runtime.operators.testutils.MockInputSplitProvider;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.runtime.plugable.NonReusingDeserializationDelegate;
 import org.apache.flink.runtime.state.StateHandle;
+import org.apache.flink.runtime.statistics.CustomStatistic;
 import org.apache.flink.types.Record;
 import org.apache.flink.util.MutableObjectIterator;
 import org.mockito.invocation.InvocationOnMock;
@@ -272,6 +273,11 @@ public class StreamMockEnvironment implements Environment {
 
 	@Override
 	public void acknowledgeCheckpoint(long checkpointId, StateHandle<?> state) {
+	}
+
+	@Override
+	public void reportCustomStatistic(CustomStatistic statistic) {
+		// discard, this is only for testing
 	}
 }
 

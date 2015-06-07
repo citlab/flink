@@ -31,6 +31,7 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.memorymanager.MemoryManager;
 import org.apache.flink.runtime.state.StateHandle;
+import org.apache.flink.runtime.statistics.CustomStatistic;
 
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -166,6 +167,13 @@ public interface Environment {
 	 * @param state A handle to the state to be included in the checkpoint.   
 	 */
 	void acknowledgeCheckpoint(long checkpointId, StateHandle<?> state);
+
+	/**
+	 * Sends given statistic to central statistics collector (at job manager).
+	 *
+	 * @param statistic
+	 */
+	void reportCustomStatistic(CustomStatistic statistic);
 
 	// --------------------------------------------------------------------------------------------
 	//  Fields relevant to the I/O system. Should go into Task
