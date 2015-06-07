@@ -54,6 +54,10 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
 
 			inputs.registerTaskEventListener(getSuperstepListener(), StreamingSuperstep.class);
 
+			if (qosCoordinator != null) {
+				qosCoordinator.setupInputQosListener(inputs, 0);
+			}
+
 			recordIterator = new IndexedReaderIterator<StreamRecord<IN>>(inputs, inSerializer);
 		}
 	}

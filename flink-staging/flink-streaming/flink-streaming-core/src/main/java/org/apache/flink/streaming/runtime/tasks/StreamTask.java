@@ -74,7 +74,7 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 
 	private EventListener<TaskEvent> superstepListener;
 
-	private StreamTaskQosCoordinator qosCoordinator = null;
+	protected StreamTaskQosCoordinator qosCoordinator = null;
 
 	public StreamTask() {
 		streamOperator = null;
