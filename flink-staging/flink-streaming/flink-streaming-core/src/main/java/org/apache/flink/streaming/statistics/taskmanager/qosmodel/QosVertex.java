@@ -25,7 +25,6 @@ import org.apache.flink.streaming.statistics.message.action.QosReporterConfig;
 import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
 import org.apache.flink.streaming.statistics.message.qosreport.AbstractQosReportRecord;
 import org.apache.flink.streaming.statistics.message.qosreport.VertexStatistics;
-import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGate.GateType;
 
 import java.util.ArrayList;
 

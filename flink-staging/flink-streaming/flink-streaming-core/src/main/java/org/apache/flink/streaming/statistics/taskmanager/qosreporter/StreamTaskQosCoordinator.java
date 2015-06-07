@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
+import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.runtime.io.StreamRecordWriter;
 import org.apache.flink.streaming.runtime.io.StreamingAbstractRecordReader;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
@@ -94,7 +95,9 @@ public class StreamTaskQosCoordinator {
 	}
 
 	public void prepareQosReporting() {
-		for (QosReporterConfig config : this.task.getConfig().getQosReporterConfigs()) {
+		StreamConfig taskConfig = new StreamConfig(this.task.getTaskConfiguration());
+
+		for (QosReporterConfig config : taskConfig.getQosReporterConfigs()) {
 			if (config instanceof VertexQosReporterConfig) {
 				installVertexStatisticsReporters((VertexQosReporterConfig) config);
 			} else {
@@ -129,7 +132,9 @@ public class StreamTaskQosCoordinator {
 //	}
 
 	public void setupInputQosListener(StreamingAbstractRecordReader<?> input, int inputIndex) {
-		List<QosReporterConfig> qosReporterConfigs = task.getConfig().getQosReporterConfigs();
+		StreamConfig taskConfig = new StreamConfig(this.task.getTaskConfiguration());
+		List<QosReporterConfig> qosReporterConfigs = taskConfig.getQosReporterConfigs();
+
 		for (QosReporterConfig config : qosReporterConfigs) {
 			if (config instanceof VertexQosReporterConfig) {
 
@@ -157,7 +162,9 @@ public class StreamTaskQosCoordinator {
 	}
 
 	public void setupOutputQosListener(StreamRecordWriter<?> writer, int outputIndex) {
-		List<QosReporterConfig> qosReporterConfigs = task.getConfig().getQosReporterConfigs();
+		StreamConfig taskConfig = new StreamConfig(task.getTaskConfiguration());
+		List<QosReporterConfig> qosReporterConfigs = taskConfig.getQosReporterConfigs();
+
 		for (QosReporterConfig config : qosReporterConfigs) {
 			if (config instanceof VertexQosReporterConfig) {
 
