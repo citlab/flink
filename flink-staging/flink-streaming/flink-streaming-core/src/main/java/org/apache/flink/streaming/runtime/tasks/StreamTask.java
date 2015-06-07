@@ -187,6 +187,10 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 		if (outputHandler != null) {
 			outputHandler.clearWriters();
 		}
+
+		if (qosCoordinator != null) {
+			qosCoordinator.cleanup();
+		}
 	}
 
 	@Override

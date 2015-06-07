@@ -238,12 +238,12 @@ public class QosReportForwarderThread extends Thread {
 	 *
 	 * After finishing the task, call {@link #unregisterTask(StreamTask)}.
 	 */
-	public static QosReportForwarderThread getOrCreateForwarderAndRegisterTask(
-			StreamTask task, Environment env) {
+	public static QosReportForwarderThread getOrCreateForwarderAndRegisterTask(StreamTask task) {
 
 		QosReportForwarderThread forwarder;
 
 		synchronized (runningForwarder) {
+			Environment env = task.getEnvironment();
 			JobID jobID = env.getJobID();
 			forwarder = runningForwarder.get(jobID);
 

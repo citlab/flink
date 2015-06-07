@@ -89,7 +89,7 @@ public class StreamTaskQosCoordinator {
 		this.task = task;
 		this.taskEnvironment = task.getEnvironment();
 		this.forwarderThread =
-			QosReportForwarderThread.getOrCreateForwarderAndRegisterTask(task, taskEnvironment);
+			QosReportForwarderThread.getOrCreateForwarderAndRegisterTask(task);
 		this.inputGateReporters = new InputGateReporterManager[this.taskEnvironment.getAllInputGates().length];
 		this.outputGateReporters = new OutputGateReporterManager[this.taskEnvironment.getAllWriters().length];
 	}
