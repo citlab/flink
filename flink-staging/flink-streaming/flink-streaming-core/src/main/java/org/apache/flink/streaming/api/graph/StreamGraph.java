@@ -303,6 +303,10 @@ public class StreamGraph extends StreamingPlan {
 		getStreamNode(vertexID).setParallelism(parallelism);
 	}
 
+	public void setElasticNumberOfSubtasks(Integer vertexID, int min, int max, int initial) {
+		getStreamNode(vertexID).setElasticNumberOfSubtasks(min, max, initial);
+	}
+
 	public void setBufferTimeout(Integer vertexID, long bufferTimeout) {
 		getStreamNode(vertexID).setBufferTimeout(bufferTimeout);
 	}

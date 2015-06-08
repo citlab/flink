@@ -107,7 +107,15 @@ public class ExecutionJobVertex implements Serializable {
 		
 		int vertexParallelism = jobVertex.getParallelism();
 		int numTaskVertices = vertexParallelism > 0 ? vertexParallelism : defaultParallelism;
-		
+		if (jobVertex.hasElasticNumberOfSubtasks()) {
+			numTaskVertices = jobVertex.getElasticMaxNumberOfSubtasks();
+			this.setElasticNumberOfRunningSubtasks(
+					jobVertex.getElasticMinNumberOfSubtasks(),
+					jobVertex.getElasticMaxNumberOfSubtasks(),
+					jobVertex.getElasticInitialNumberOfSubtasks()
+			);
+		}
+
 		this.parallelism = numTaskVertices;
 		this.taskVertices = new ExecutionVertex[numTaskVertices];
 		

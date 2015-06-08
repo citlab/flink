@@ -44,6 +44,9 @@ public class StreamNode implements Serializable {
 
 	private Integer ID;
 	private Integer parallelism = null;
+	private Integer minElasticNumberOfSubtasks = null;
+	private Integer maxElasticNumberOfSubtasks = null;
+	private Integer initialElasticNumberOfSubtasks = null;
 	private Long bufferTimeout = null;
 	private String operatorName;
 	private Integer slotSharingID;
@@ -128,6 +131,43 @@ public class StreamNode implements Serializable {
 
 	public void setParallelism(Integer parallelism) {
 		this.parallelism = parallelism;
+	}
+
+	public int getElasticMinNumberOfSubtasks() {
+		return this.minElasticNumberOfSubtasks;
+	}
+
+	public int getElasticMaxNumberOfSubtasks() {
+		return this.maxElasticNumberOfSubtasks;
+	}
+
+	public int getElasticInitialNumberOfSubtasks() {
+		return this.initialElasticNumberOfSubtasks;
+	}
+
+	public boolean hasElasticNumberOfSubtasks() {
+		return this.minElasticNumberOfSubtasks != null;
+	}
+
+	public void setElasticNumberOfSubtasks(int min, int max, int initial) {
+		if (min <= 0) {
+			throw new IllegalArgumentException(
+					"Illegal minimum number of elastic subtasks.");
+		}
+
+		if (min <= 0) {
+			throw new IllegalArgumentException(
+					"Illegal maximum number of elastic subtasks.");
+		}
+
+		if (initial < min || initial > max) {
+			throw new IllegalArgumentException(
+					"Illegal initial number of elastic subtasks.");
+		}
+
+		this.minElasticNumberOfSubtasks = min;
+		this.maxElasticNumberOfSubtasks = max;
+		this.initialElasticNumberOfSubtasks = initial;
 	}
 
 	public Long getBufferTimeout() {

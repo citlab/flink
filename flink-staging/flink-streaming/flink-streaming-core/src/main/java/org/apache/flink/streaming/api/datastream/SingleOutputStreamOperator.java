@@ -98,6 +98,23 @@ public class SingleOutputStreamOperator<OUT, O extends SingleOutputStreamOperato
 	}
 
 	/**
+	 * Sets an elastic number of subtasks for this task.
+	 *
+	 * @param min
+	 *            the minimum amount of subtasks.
+	 * @param max
+	 *            the maximum amount of subtasks.
+	 * @param initial
+	 *            the initial amount of subtasks
+	 * @return The operator with set elastic number of subtasks.
+	 */
+	public SingleOutputStreamOperator<OUT, O> setElasticNumberOfSubtasks(int min, int max, int initial) {
+		this.parallelism = -1;
+		streamGraph.setElasticNumberOfSubtasks(id, min, max, initial);
+		return this;
+	}
+
+	/**
 	 * Sets the maximum time frequency (ms) for the flushing of the output
 	 * buffer. By default the output buffers flush only when they are full.
 	 * 

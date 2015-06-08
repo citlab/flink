@@ -266,6 +266,14 @@ public class StreamingJobGraphGenerator {
 			jobVertex.setParallelism(parallelism);
 		}
 
+		if (vertex.hasElasticNumberOfSubtasks()) {
+			jobVertex.setElasticNumberOfSubtasks(
+					vertex.getElasticMinNumberOfSubtasks(),
+					vertex.getElasticMaxNumberOfSubtasks(),
+					vertex.getElasticInitialNumberOfSubtasks()
+			);
+		}
+
 		if (LOG.isDebugEnabled()) {
 			LOG.debug("Parallelism set: {} for {}", parallelism, vertexID);
 		}

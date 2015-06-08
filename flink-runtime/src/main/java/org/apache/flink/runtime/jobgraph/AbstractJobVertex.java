@@ -56,6 +56,12 @@ public class AbstractJobVertex implements java.io.Serializable {
 	/** Number of subtasks to split this task into at runtime.*/
 	private int parallelism = -1;
 
+	private int minElasticNumberOfSubtasks = -1;
+
+	private int maxElasticNumberOfSubtasks = -1;
+
+	private int initialElasticNumberOfSubtasks = -1;
+
 	/** Custom configuration passed to the assigned task at runtime. */
 	private Configuration configuration;
 
@@ -214,7 +220,46 @@ public class AbstractJobVertex implements java.io.Serializable {
 		}
 		this.parallelism = parallelism;
 	}
-	
+
+	public int getElasticMinNumberOfSubtasks() {
+		return this.minElasticNumberOfSubtasks;
+	}
+
+	public int getElasticMaxNumberOfSubtasks() {
+		return this.maxElasticNumberOfSubtasks;
+	}
+
+	public int getElasticInitialNumberOfSubtasks() {
+		return this.initialElasticNumberOfSubtasks;
+	}
+
+	public boolean hasElasticNumberOfSubtasks() {
+		return this.minElasticNumberOfSubtasks != -1;
+	}
+
+	public void setElasticNumberOfSubtasks(int min, int max, int initial) {
+		this.parallelism = -1;
+
+		if (min <= 0) {
+			throw new IllegalArgumentException(
+					"Illegal minimum number of elastic subtasks.");
+		}
+
+		if (min <= 0) {
+			throw new IllegalArgumentException(
+					"Illegal maximum number of elastic subtasks.");
+		}
+
+		if (initial < min || initial > max) {
+			throw new IllegalArgumentException(
+					"Illegal initial number of elastic subtasks.");
+		}
+
+		this.minElasticNumberOfSubtasks = min;
+		this.maxElasticNumberOfSubtasks = max;
+		this.initialElasticNumberOfSubtasks = initial;
+	}
+
 	public InputSplitSource<?> getInputSplitSource() {
 		return inputSplitSource;
 	}
