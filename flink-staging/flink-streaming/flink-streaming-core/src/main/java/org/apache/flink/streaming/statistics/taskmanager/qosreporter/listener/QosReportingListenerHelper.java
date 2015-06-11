@@ -41,7 +41,7 @@ public class QosReportingListenerHelper {
 		InputGateQosReportingListener listener = new InputGateQosReportingListener() {
 			@Override
 			public void recordReceived(int inputChannel, TimeStampedRecord record) {
-				vertexStatisticsManager.recordReceived(inputChannel);
+				vertexStatisticsManager.recordReceived(inputGateIndex);
 			}
 
 			@Override
