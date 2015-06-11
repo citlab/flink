@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.statistics;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.messages.ExecutionGraphMessages.ExecutionStateChanged;
 import org.apache.flink.runtime.messages.ExecutionGraphMessages.JobStatusChanged;
@@ -73,9 +74,13 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 	@Override
 	public void handleExecutionStateChanged(ExecutionStateChanged executionStatus) {
 		LOG.warn("Got execution state change: {}", executionStatus);
-		this.qosModel.handOffVertexStatusChange(
-			executionGraph.getRegisteredExecutions().get(executionStatus.executionID())
-		);
+		Execution execution = executionGraph.getRegisteredExecutions().get(executionStatus.executionID());
+
+		if (execution != null) {
+			this.qosModel.handOffVertexStatusChange(
+					executionStatus.newExecutionState(), execution.getVertex()
+			);
+		}
 	}
 
 	@Override

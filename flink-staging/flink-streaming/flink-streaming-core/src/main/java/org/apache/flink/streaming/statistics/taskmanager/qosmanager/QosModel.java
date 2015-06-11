@@ -18,8 +18,8 @@
 
 package org.apache.flink.streaming.statistics.taskmanager.qosmanager;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.execution.ExecutionState;
-import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionEdge;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.streaming.api.graph.StreamConfig;
@@ -97,7 +97,13 @@ public class QosModel {
 	/**
 	 * Reassemble graph based on state changes.
 	 */
-	private final LinkedBlockingQueue<Execution> pendingVertexStateChanges;
+	private final LinkedBlockingQueue<Tuple2<ExecutionState,ExecutionVertex>> pendingVertexStateChanges;
+
+	/**
+	 * Status changes are async handled (via akka). Keep pending configs in this queue until all
+	 * required vertices are deployed.
+	 */
+	private final LinkedBlockingQueue<Tuple2<ExecutionVertex,EdgeQosReporterConfig>> pendingEdgeReporterConfigs;
 
 	/**
 	 * A dummy object containing chain updates that need to be buffered, because
@@ -115,7 +121,8 @@ public class QosModel {
 	public QosModel(QosGraph qosGraph) {
 		this.qosGraph = qosGraph;
 		this.state = State.SHALLOW;
-		this.pendingVertexStateChanges = new LinkedBlockingQueue<Execution>();
+		this.pendingVertexStateChanges = new LinkedBlockingQueue<Tuple2<ExecutionState,ExecutionVertex>>();
+		this.pendingEdgeReporterConfigs = new LinkedBlockingQueue<Tuple2<ExecutionVertex, EdgeQosReporterConfig>>();
 //		this.chainUpdatesBuffer = new ChainUpdates(jobID);
 		this.graphMemberByReporterID = new HashMap<QosReporterID, QosGraphMember>();
 		this.reporterConfigByID = new HashMap<QosReporterID, QosReporterConfig>();
@@ -144,6 +151,7 @@ public class QosModel {
 	private void processAnnouncements() {
 		if (!this.pendingVertexStateChanges.isEmpty()) {
 			this.processVertexStatusChanges();
+			this.processEdgeReporterConfigs();
 		}
 //		this.tryToProcessBufferedChainUpdates();
 	}
@@ -240,14 +248,14 @@ public class QosModel {
 		}
 	}
 
-	public void handOffVertexStatusChange(Execution vertex) {
+	public void handOffVertexStatusChange(ExecutionState state, ExecutionVertex vertex) {
 		synchronized (this.pendingVertexStateChanges) {
-			this.pendingVertexStateChanges.add(vertex);
+			this.pendingVertexStateChanges.add(new Tuple2<ExecutionState, ExecutionVertex>(state, vertex));
 		}
 	}
 
 	private void processVertexStatusChanges() {
-		ArrayList<Execution> pendingChanges = new ArrayList<Execution>();
+		ArrayList<Tuple2<ExecutionState,ExecutionVertex>> pendingChanges = new ArrayList<Tuple2<ExecutionState,ExecutionVertex>>();
 
 		synchronized (this.pendingVertexStateChanges) {
 			pendingChanges.ensureCapacity(this.pendingVertexStateChanges.size());
@@ -255,9 +263,9 @@ public class QosModel {
 		}
 
 		if (!pendingChanges.isEmpty()) {
-			for (Execution execution : pendingChanges) {
-				ExecutionVertex vertex = execution.getVertex();
-				ExecutionState state = vertex.getExecutionState();
+			for (Tuple2<ExecutionState,ExecutionVertex> change : pendingChanges) {
+				ExecutionState state = change.f0;
+				ExecutionVertex vertex = change.f1;
 
 				if (state == ExecutionState.RUNNING) {
 					assembleFromExecutionVertex(vertex);
@@ -274,6 +282,16 @@ public class QosModel {
 		}
 	}
 
+	private void processEdgeReporterConfigs() {
+		ArrayList<Tuple2<ExecutionVertex,EdgeQosReporterConfig>> pendingConfigs = new ArrayList<Tuple2<ExecutionVertex, EdgeQosReporterConfig>>();
+		pendingConfigs.ensureCapacity(this.pendingEdgeReporterConfigs.size());
+		this.pendingEdgeReporterConfigs.drainTo(pendingConfigs);
+
+		for (Tuple2<ExecutionVertex,EdgeQosReporterConfig> t : pendingConfigs) {
+			assembleQosEdgesFromConfig(t.f0, t.f1);
+		}
+	}
+
 	/**
 	 * Assemble qos vertex, gates and edges from execution vertex.
 	 */
@@ -286,6 +304,11 @@ public class QosModel {
 
 		QosGroupVertex groupVertex = this.qosGraph.getGroupVertexByID(vertex.getJobvertexId());
 		int memberIndex = vertex.getParallelSubtaskIndex();
+
+		if (groupVertex.getMember(memberIndex) != null) {
+			return; // already initialized
+		}
+
 		QosVertex memberVertex = new QosVertex(vertex);
 		memberVertex.setQosData(new VertexQosData(memberVertex));
 		groupVertex.setGroupMember(memberVertex);
@@ -354,18 +377,14 @@ public class QosModel {
 
 				if (!this.graphMemberByReporterID.containsKey(reporterID)) {
 					ExecutionVertex sourceVertex = executionEdge.getSource().getProducer();
-					QosEdge qosEdge = assembleQosEdgeFromConfig(
-						sourceVertex, memberVertex, reporterID, toProcess
-					);
-					this.graphMemberByReporterID.put(reporterID, qosEdge);
-					this.reporterConfigByID.put(reporterID, toProcess);
+					assembleQosEdgeFromConfig(sourceVertex, memberVertex, reporterID, toProcess);
 				}
 			}
 		}
 	}
 
 	// TODO: merge this with assembleQosEdgesFromConfig
-	private QosEdge assembleQosEdgeFromConfig(
+	private void assembleQosEdgeFromConfig(
 			ExecutionVertex sourceVertex, ExecutionVertex targetVertex,
 			QosReporterID.Edge reporterID, EdgeQosReporterConfig toProcess) {
 
@@ -377,6 +396,14 @@ public class QosModel {
 
 		QosVertex sourceQosVertex = sourceGroupVertex.getMember(sourceTaskIndex);
 		QosVertex targetQosVertex = targetGroupVertex.getMember(targetTaskIndex);
+
+		if (sourceQosVertex == null || targetQosVertex == null) {
+			// wait until required vertices deployed (execution state updates are async and not sorted!)
+			this.pendingEdgeReporterConfigs.add(
+					new Tuple2<ExecutionVertex, EdgeQosReporterConfig>(targetVertex, toProcess)
+			);
+			return;
+		}
 
 		QosGate outputGate = sourceQosVertex.getOutputGate(toProcess.getOutputGateIndex());
 		if (outputGate == null) {
@@ -397,7 +424,8 @@ public class QosModel {
 		qosEdge.setInputGate(inputGate);
 		qosEdge.setQosData(new EdgeQosData(qosEdge));
 
-		return qosEdge;
+		this.graphMemberByReporterID.put(reporterID, qosEdge);
+		this.reporterConfigByID.put(reporterID, toProcess);
 	}
 
 	public List<QosConstraintSummary> findQosConstraintViolationsAndSummarize(
