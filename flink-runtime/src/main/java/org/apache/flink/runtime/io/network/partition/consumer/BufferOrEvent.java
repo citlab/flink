@@ -36,16 +36,20 @@ public class BufferOrEvent {
 
 	private int channelIndex;
 
+	private final long bufferInterarrivalTimeNanos;
+
 	public BufferOrEvent(Buffer buffer, int channelIndex) {
 		this.buffer = checkNotNull(buffer);
 		this.event = null;
 		this.channelIndex = channelIndex;
+		this.bufferInterarrivalTimeNanos = buffer.getInterarrivalTimeNanos();
 	}
 
 	public BufferOrEvent(AbstractEvent event, int channelIndex) {
 		this.buffer = null;
 		this.event = checkNotNull(event);
 		this.channelIndex = channelIndex;
+		this.bufferInterarrivalTimeNanos = -1;
 	}
 
 	public boolean isBuffer() {
@@ -71,6 +75,10 @@ public class BufferOrEvent {
 	public void setChannelIndex(int channelIndex) {
 		checkArgument(channelIndex >= 0);
 		this.channelIndex = channelIndex;
+	}
+
+	public long getBufferInterarrivalTimeNanos() {
+		return bufferInterarrivalTimeNanos;
 	}
 
 	@Override

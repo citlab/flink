@@ -49,6 +49,9 @@ public class Buffer {
 	 */
 	private int currentSize;
 
+	/** Time since last received buffer on input gate. */
+	private long interarrivalTimeNanos = -1;
+
 	public Buffer(MemorySegment memorySegment, BufferRecycler recycler) {
 		this(memorySegment, recycler, true);
 	}
@@ -140,6 +143,14 @@ public class Buffer {
 	// Must be called from synchronized scope
 	private void ensureNotRecycled() {
 		checkState(referenceCount > 0, "Buffer has already been recycled.");
+	}
+
+	public long getInterarrivalTimeNanos() {
+		return interarrivalTimeNanos;
+	}
+
+	public void setInterarrivalTimeNanos(long interarrivalTimeNanos) {
+		this.interarrivalTimeNanos = interarrivalTimeNanos;
 	}
 
 	@Override

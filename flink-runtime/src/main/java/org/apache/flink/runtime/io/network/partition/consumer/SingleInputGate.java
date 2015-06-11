@@ -168,6 +168,9 @@ public class SingleInputGate implements InputGate {
 	/** A timer to retrigger local partition requests. Only initialized if actually needed. */
 	private Timer retriggerLocalRequestTimer;
 
+	/** Time since last received buffer. */
+	private long lastBufferArrivalTimestamp;
+
 	public SingleInputGate(
 			String owningTaskName,
 			JobID jobId,
@@ -475,6 +478,16 @@ public class SingleInputGate implements InputGate {
 				executionId,
 				consumedResultId,
 				partitionId);
+	}
+
+	/**
+	 * Stores current timestamp and returns time since last timestamp.
+	 * @return buffer interarrival time in nano seconds.
+	 */
+	public long getAndSetBufferInterarrivalTime() {
+		long oldTimestamp = lastBufferArrivalTimestamp;
+		lastBufferArrivalTimestamp = System.nanoTime();
+		return lastBufferArrivalTimestamp - oldTimestamp;
 	}
 
 	// ------------------------------------------------------------------------

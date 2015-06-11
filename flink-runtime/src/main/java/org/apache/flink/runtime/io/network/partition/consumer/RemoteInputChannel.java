@@ -244,6 +244,7 @@ public class RemoteInputChannel extends InputChannel {
 					if (expectedSequenceNumber == sequenceNumber) {
 						receivedBuffers.add(buffer);
 						expectedSequenceNumber++;
+						buffer.setInterarrivalTimeNanos(inputGate.getAndSetBufferInterarrivalTime());
 
 						notifyAvailableBuffer();
 

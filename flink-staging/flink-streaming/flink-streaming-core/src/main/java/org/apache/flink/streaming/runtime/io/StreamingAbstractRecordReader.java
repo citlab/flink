@@ -64,6 +64,8 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 
 	private InputGateQosReportingListener qosCallback;
 
+	private long bufferInterarrivalTimeNanos;
+
 	@SuppressWarnings("unchecked")
 	protected StreamingAbstractRecordReader(InputGate inputGate) {
 		super(inputGate);
@@ -95,8 +97,8 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 					currentRecordDeserializer = null;
 
 					if (qosCallback != null) {
-						// TODO set bufferInterarrivalTimeNanos
-						qosCallback.inputBufferConsumed(currentRecordDeserializerIndex, 123);
+						qosCallback.inputBufferConsumed(currentRecordDeserializerIndex, bufferInterarrivalTimeNanos);
+						bufferInterarrivalTimeNanos = -1;
 					}
 				}
 
@@ -122,6 +124,7 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 				currentRecordDeserializerIndex = bufferOrEvent.getChannelIndex();
 				currentRecordDeserializer = recordDeserializers[currentRecordDeserializerIndex];
 				currentRecordDeserializer.setNextBuffer(bufferOrEvent.getBuffer());
+				bufferInterarrivalTimeNanos = bufferOrEvent.getBufferInterarrivalTimeNanos();
 			} else {
 				// Event received
 				final AbstractEvent event = bufferOrEvent.getEvent();
@@ -165,5 +168,6 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 
 	public void setQosCallback(InputGateQosReportingListener qosCallback) {
 		this.qosCallback = qosCallback;
+		this.bufferInterarrivalTimeNanos = -1;
 	}
 }
