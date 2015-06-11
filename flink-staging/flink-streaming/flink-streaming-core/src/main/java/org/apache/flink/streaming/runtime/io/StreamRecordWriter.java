@@ -122,11 +122,12 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 		if (qosCallback != null && record instanceof TimeStampedRecord) {
 			qosCallback.recordEmitted(channels[0], (TimeStampedRecord) record);
 
-		} else if (qosCallback != null && record instanceof SerializationDelegate) {
-			if (((SerializationDelegate) record).getInstance() instanceof TimeStampedRecord) {
-				qosCallback.recordEmitted(channels[0],
-						(TimeStampedRecord) ((SerializationDelegate) record).getInstance());
-			}
+		} else if (qosCallback != null
+				&& record instanceof SerializationDelegate
+				&& ((SerializationDelegate) record).getInstance() instanceof TimeStampedRecord) {
+
+			qosCallback.recordEmitted(channels[0],
+					(TimeStampedRecord) ((SerializationDelegate) record).getInstance());
 		}
 	}
 

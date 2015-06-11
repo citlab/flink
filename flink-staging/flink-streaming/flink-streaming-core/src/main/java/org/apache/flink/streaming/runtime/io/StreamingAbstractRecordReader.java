@@ -30,6 +30,7 @@ import org.apache.flink.runtime.io.network.api.serialization.SpillingAdaptiveSpa
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
+import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.streaming.runtime.tasks.StreamingSuperstep;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.InputGateQosReportingListener;
 import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
@@ -95,10 +96,17 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 				}
 
 				if (result.isFullRecord()) {
-					// TODO target AbstractTaggableRecord
 					if (qosCallback != null && target instanceof TimeStampedRecord) {
-						qosCallback.recordReceived(currentRecordDeserializerIndex, ((TimeStampedRecord) target));
+						qosCallback.recordReceived(currentRecordDeserializerIndex, (TimeStampedRecord) target);
+
+					} else if (qosCallback != null
+							&& target instanceof DeserializationDelegate
+							&& ((DeserializationDelegate)target).getInstance() instanceof TimeStampedRecord) {
+
+						qosCallback.recordReceived(currentRecordDeserializerIndex,
+								(TimeStampedRecord) ((DeserializationDelegate) target).getInstance());
 					}
+
 					return true;
 				}
 			}
