@@ -88,6 +88,11 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 		this.configuration = new StreamConfig(getTaskConfiguration());
 		this.stateHandleProvider = getStateHandleProvider();
 
+		if (this.configuration.hasQosReporterConfigs()) {
+			this.qosCoordinator = new StreamTaskQosCoordinator(this);
+			this.qosCoordinator.prepareQosReporting();
+		}
+
 		outputHandler = new OutputHandler<OUT>(this);
 
 		streamOperator = configuration.getStreamOperator(userClassLoader);
@@ -102,11 +107,6 @@ public abstract class StreamTask<OUT, O extends StreamOperator<OUT>> extends Abs
 		}
 
 		hasChainedOperators = !outputHandler.getChainedOperators().isEmpty();
-
-		if (this.configuration.hasQosReporterConfigs()) {
-			this.qosCoordinator = new StreamTaskQosCoordinator(this);
-			this.qosCoordinator.prepareQosReporting();
-		}
 	}
 
 	public String getName() {
