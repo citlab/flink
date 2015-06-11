@@ -95,8 +95,8 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 					currentRecordDeserializer = null;
 
 					if (qosCallback != null) {
-						// TODO set bufferInterarrivalTimeNanos and recordsReadFromBuffer
-						qosCallback.inputBufferConsumed(currentRecordDeserializerIndex, 0, 0);
+						// TODO set bufferInterarrivalTimeNanos
+						qosCallback.inputBufferConsumed(currentRecordDeserializerIndex, 123);
 					}
 				}
 

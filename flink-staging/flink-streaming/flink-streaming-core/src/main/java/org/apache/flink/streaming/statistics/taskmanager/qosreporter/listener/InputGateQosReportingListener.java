@@ -34,5 +34,5 @@ public interface InputGateQosReportingListener {
 
 	void tryingToReadRecord();
 
-	void inputBufferConsumed(int channelIndex, long bufferInterarrivalTimeNanos, int recordsReadFromBuffer);
+	void inputBufferConsumed(int channelIndex, long bufferInterarrivalTimeNanos);
 }

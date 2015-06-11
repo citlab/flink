@@ -39,9 +39,12 @@ public class QosReportingListenerHelper {
 			final int inputGateIndex, final VertexStatisticsReportManager vertexStatisticsManager) {
 
 		InputGateQosReportingListener listener = new InputGateQosReportingListener() {
+			private int recordsReadFromBuffer = 0;
+
 			@Override
 			public void recordReceived(int inputChannel, TimeStampedRecord record) {
 				vertexStatisticsManager.recordReceived(inputGateIndex);
+				recordsReadFromBuffer++;
 			}
 
 			@Override
@@ -50,9 +53,10 @@ public class QosReportingListenerHelper {
 			}
 
 			@Override
-			public void inputBufferConsumed(int channelIndex, long bufferInterarrivalTimeNanos, int recordsReadFromBuffer) {
-				vertexStatisticsManager.inputBufferConsumed(inputGateIndex, channelIndex, bufferInterarrivalTimeNanos,
-						recordsReadFromBuffer);
+			public void inputBufferConsumed(int channelIndex, long bufferInterarrivalTimeNanos) {
+				vertexStatisticsManager.inputBufferConsumed(inputGateIndex, channelIndex,
+						bufferInterarrivalTimeNanos, recordsReadFromBuffer);
+				recordsReadFromBuffer = 0;
 			}
 		};
 
@@ -110,7 +114,7 @@ public class QosReportingListenerHelper {
 			}
 
 			@Override
-			public void inputBufferConsumed(int channelIndex, long bufferInterarrivalTimeNanos, int recordsReadFromBuffer) {
+			public void inputBufferConsumed(int channelIndex, long bufferInterarrivalTimeNanos) {
 				// nothing to do
 			}
 		};
@@ -169,10 +173,9 @@ public class QosReportingListenerHelper {
 			}
 
 			@Override
-			public void inputBufferConsumed(int channelIndex, long bufferInterarrivalTimeNanos, int recordsReadFromBuffer) {
-				
-				first.inputBufferConsumed(channelIndex, bufferInterarrivalTimeNanos, recordsReadFromBuffer);
-				second.inputBufferConsumed(channelIndex, bufferInterarrivalTimeNanos, recordsReadFromBuffer);
+			public void inputBufferConsumed(int channelIndex, long bufferInterarrivalTimeNanos) {
+				first.inputBufferConsumed(channelIndex, bufferInterarrivalTimeNanos);
+				second.inputBufferConsumed(channelIndex, bufferInterarrivalTimeNanos);
 			}
 		};
 	}
