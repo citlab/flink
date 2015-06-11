@@ -55,6 +55,7 @@ import org.apache.flink.streaming.runtime.tasks.SourceStreamTask;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationHead;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationTail;
 import org.apache.flink.streaming.runtime.tasks.TwoInputStreamTask;
+import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
 import org.apache.sling.commons.json.JSONException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,7 +85,7 @@ public class StreamGraph extends StreamingPlan {
 	private StateHandleProvider<?> stateHandleProvider;
 
 	// qos statistics and constraints
-	private long qosStatisticReportInterval = 7000;
+	private long qosStatisticReportInterval = -1;
 	private Map<ConstraintGroupIdentifier, ConstraintGroupConfiguration> constraintConfigurations;
 	private LinkedList<ConstraintGroupIdentifier> identifiers;
 
@@ -461,6 +462,13 @@ public class StreamGraph extends StreamingPlan {
 	}
 
 	public void setQosStatisticReportInterval(long qosStatisticReportInterval) {
+		if (qosStatisticReportInterval >= QosStatisticsConfig.getAdjustmentIntervalMillis()) {
+			throw new RuntimeException(
+					"Statistic report interval (" + qosStatisticReportInterval +
+					" have to be lower then adjustment interval (" +
+					QosStatisticsConfig.getAdjustmentIntervalMillis() + ")!");
+		}
+
 		this.qosStatisticReportInterval = qosStatisticReportInterval;
 	}
 
