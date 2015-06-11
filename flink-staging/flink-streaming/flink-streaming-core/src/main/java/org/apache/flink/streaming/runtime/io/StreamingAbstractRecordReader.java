@@ -93,6 +93,11 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 				if (result.isBufferConsumed()) {
 					currentRecordDeserializer.getCurrentBuffer().recycle();
 					currentRecordDeserializer = null;
+
+					if (qosCallback != null) {
+						// TODO set bufferInterarrivalTimeNanos and recordsReadFromBuffer
+						qosCallback.inputBufferConsumed(currentRecordDeserializerIndex, 0, 0);
+					}
 				}
 
 				if (result.isFullRecord()) {
@@ -112,11 +117,6 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 			}
 
 			final BufferOrEvent bufferOrEvent = barrierBuffer.getNextNonBlocked();
-
-			if (qosCallback != null) {
-				// TODO set bufferInterarrivalTimeNanos and recordsReadFromBuffer
-				qosCallback.inputBufferConsumed(currentRecordDeserializerIndex, 0, 0);
-			}
 
 			if (bufferOrEvent.isBuffer()) {
 				currentRecordDeserializerIndex = bufferOrEvent.getChannelIndex();
