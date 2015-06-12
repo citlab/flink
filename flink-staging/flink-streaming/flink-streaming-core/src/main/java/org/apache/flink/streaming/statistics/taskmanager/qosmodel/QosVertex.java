@@ -69,9 +69,9 @@ public class QosVertex implements QosGraphMember {
 	}
 
 	public QosGate getInputGate(int gateIndex) {
-		try {
+		if (gateIndex < this.inputGates.size()) {
 			return this.inputGates.get(gateIndex);
-		} catch (IndexOutOfBoundsException e) {
+		} else {
 			return null;
 		}
 	}
@@ -90,9 +90,9 @@ public class QosVertex implements QosGraphMember {
 	}
 
 	public QosGate getOutputGate(int gateIndex) {
-		try {
+		if (gateIndex < this.outputGates.size()) {
 			return this.outputGates.get(gateIndex);
-		} catch (IndexOutOfBoundsException e) {
+		} else {
 			return null;
 		}
 	}

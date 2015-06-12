@@ -93,9 +93,9 @@ public class QosGroupVertex {
 	}
 
 	public QosGroupEdge getForwardEdge(int outputGateIndex) {
-		try {
+		if (outputGateIndex < this.forwardEdges.size()) {
 			return this.forwardEdges.get(outputGateIndex);
-		} catch (IndexOutOfBoundsException e) {
+		} else {
 			return null;
 		}
 	}
@@ -121,9 +121,9 @@ public class QosGroupVertex {
 	}
 
 	public QosGroupEdge getBackwardEdge(int inputGateIndex) {
-		try {
+		if (inputGateIndex < this.backwardEdges.size()) {
 			return this.backwardEdges.get(inputGateIndex);
-		} catch (IndexOutOfBoundsException e) {
+		} else {
 			return null;
 		}
 	}
@@ -233,13 +233,11 @@ public class QosGroupVertex {
 	 *         the given index.
 	 */
 	public QosVertex getMember(int memberIndex) {
-		QosVertex toReturn = null;
-
-		if (this.groupMembers.size() > memberIndex) {
-			toReturn = this.groupMembers.get(memberIndex);
+		if (memberIndex < this.groupMembers.size()) {
+			return this.groupMembers.get(memberIndex);
+		} else {
+			return null;
 		}
-
-		return toReturn;
 	}
 
 	/**
