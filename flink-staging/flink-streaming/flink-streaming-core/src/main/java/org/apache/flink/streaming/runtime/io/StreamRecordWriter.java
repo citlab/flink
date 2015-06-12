@@ -57,25 +57,34 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 
 	public StreamRecordWriter(ResultPartitionWriter writer, ChannelSelector<T> channelSelector,
 			long timeout) {
-		super(writer, channelSelector);
 
+		super(writer, channelSelector);
+		setTimeout(timeout);
+		writer.subscribeToEvent(this, SetOutputBufferLifetimeTargetEvent.class);
+	}
+
+	public void setTimeout(long timeout) {
 		this.timeout = timeout;
 
-		if (timeout == 0) {
-			flushAlways = true;
-		} else {
+		if (timeout > 0 && this.outputFlusher == null) {
+			this.flushAlways = false;
 			this.outputFlusher = new OutputFlusher();
-			outputFlusher.start();
-			writer.subscribeToEvent(this, SetOutputBufferLifetimeTargetEvent.class);
+			this.outputFlusher.start();
+
+		} else if (timeout == 0 && this.outputFlusher != null) {
+			this.flushAlways = true;
+			this.outputFlusher.terminate();
+			this.outputFlusher = null;
 		}
+
+		LOG.debug("Auto flush timeout changed to: {}.", this.timeout);
 	}
-	
+
 	@Override
 	public void onEvent(TaskEvent event) {
 		if (event instanceof SetOutputBufferLifetimeTargetEvent) {
 			SetOutputBufferLifetimeTargetEvent target = (SetOutputBufferLifetimeTargetEvent) event;
-			this.timeout = target.getOutputBufferLifetimeTarget();
-			LOG.debug("New auto flush timeout set: {}.", this.timeout);
+			setTimeout(target.getOutputBufferLifetimeTarget());
 		}
 	}
 
@@ -89,23 +98,23 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 
 	@Override
 	public void emit(T record) throws IOException, InterruptedException {
-		int[] channels = channelSelector.selectChannels(record, numChannels);
-		for (int targetChannel : channels) {
+		for (int targetChannel : channelSelector.selectChannels(record, numChannels)) {
 			// serialize with corresponding serializer and send full buffer
 			RecordSerializer<T> serializer = serializers[targetChannel];
 
 			synchronized (serializer) {
 				RecordSerializer.SerializationResult result = serializer.addRecord(record);
+
 				while (result.isFullBuffer()) {
 					Buffer buffer = serializer.getCurrentBuffer();
 
 					if (buffer != null) {
 						writer.writeBuffer(buffer, targetChannel);
+						serializer.clearCurrentBuffer();
+					}
 
-						if (qosCallback != null) {
-							qosCallback.outputBufferSent(targetChannel, writer.getPartition().getTotalNumberOfBytes());
-						}
-
+					if (qosCallback != null) {
+						qosCallback.outputBufferSent(targetChannel, writer.getPartition().getTotalNumberOfBytes());
 					}
 
 					buffer = writer.getBufferProvider().requestBufferBlocking();
@@ -116,18 +125,21 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 					}
 				}
 			}
+
+			if (qosCallback != null && record instanceof TimeStampedRecord) {
+				qosCallback.recordEmitted(targetChannel, (TimeStampedRecord) record);
+
+			} else if (qosCallback != null
+					&& record instanceof SerializationDelegate
+					&& ((SerializationDelegate) record).getInstance() instanceof TimeStampedRecord) {
+
+				qosCallback.recordEmitted(targetChannel,
+						(TimeStampedRecord) ((SerializationDelegate) record).getInstance());
+			}
 		}
 
-		// TODO: channel[0] ?
-		if (qosCallback != null && record instanceof TimeStampedRecord) {
-			qosCallback.recordEmitted(channels[0], (TimeStampedRecord) record);
-
-		} else if (qosCallback != null
-				&& record instanceof SerializationDelegate
-				&& ((SerializationDelegate) record).getInstance() instanceof TimeStampedRecord) {
-
-			qosCallback.recordEmitted(channels[0],
-					(TimeStampedRecord) ((SerializationDelegate) record).getInstance());
+		if (flushAlways) {
+			flush();
 		}
 	}
 
@@ -149,8 +161,13 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 	private class OutputFlusher extends Thread {
 		private volatile boolean running = true;
 
+		public OutputFlusher() {
+			super("OutputFlusher");
+		}
+
 		public void terminate() {
 			running = false;
+			interrupt();
 		}
 
 		@Override
