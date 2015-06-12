@@ -44,6 +44,8 @@ import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosVertex;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.VertexQosData;
 import org.apache.flink.streaming.statistics.util.QosStatisticsConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -62,6 +64,8 @@ import java.util.concurrent.LinkedBlockingQueue;
  * @author Bjoern Lohrmann, Sascha Wolke
  */
 public class QosModel {
+
+	private static final Logger LOG = LoggerFactory.getLogger(QosModel.class);
 
 	public enum State {
 		/**
@@ -545,6 +549,8 @@ public class QosModel {
 			groupVertexSummary.setActiveVertices(activeVertices);
 			groupVertexSummary.setMeanVertexLatency(vertexLatencySum / activeVertices);
 			groupVertexSummary.setMeanVertexLatencyCV(vertexLatencyCASum / activeVertices);
+		} else {
+			LOG.debug("Empty group vertex summary found on vertex: {}.", groupVertex);
 		}
 	}
 
@@ -596,6 +602,8 @@ public class QosModel {
 			groupEdgeSummary
 				.setMeanConsumerVertexInterarrivalTimeCV(interarrivalTimeCASum / activeConsumerVertices);
 			setSourceGroupVertexEmissionRate(seqElem, inactivityThresholdTime, groupEdgeSummary);
+		} else {
+			LOG.debug("Empty group edge summary found on target vertex: {}.", targetGroupVertex);
 		}
 	}
 
