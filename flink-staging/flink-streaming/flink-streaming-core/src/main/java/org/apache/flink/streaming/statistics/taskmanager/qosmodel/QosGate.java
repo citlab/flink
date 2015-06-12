@@ -29,7 +29,6 @@ import java.util.ArrayList;
  * {@link org.apache.flink.runtime.executiongraph.ExecutionGate}.
  *
  * @author Bjoern Lohrmann
- *
  */
 public class QosGate {
 
@@ -37,9 +36,6 @@ public class QosGate {
 
 	private final int gateIndex;
 
-	/**
-	 * Sparse list of edges, which means this list may contain null entries.
-	 */
 	private final ArrayList<QosEdge> edges;
 
 	private QosVertex vertex;
@@ -52,10 +48,6 @@ public class QosGate {
 
 	private int noOfEdges;
 
-	/**
-	 * Initializes QosGate.
-	 *
-	 */
 	public QosGate(GateType gateType, IntermediateDataSetID intermediateDataSetID, int gateIndex) {
 		this.gateType = gateType;
 		this.intermediateDataSetID = intermediateDataSetID;
@@ -85,43 +77,11 @@ public class QosGate {
 	}
 
 	public void addEdge(QosEdge edge) {
-		int edgeIndex = this.isOutputGate() ? edge.getOutputGateEdgeIndex()
-				: edge.getInputGateEdgeIndex();
-
-		if (edgeIndex >= this.edges.size()) {
-			this.fillWithNulls(this.edges, edgeIndex + 1);
-		}
-
-		if (this.edges.get(edgeIndex) == null) {
-			this.noOfEdges++;
-		}
-		this.edges.set(edgeIndex, edge);
-	}
-
-	private <T> void fillWithNulls(ArrayList<T> list, int targetSize) {
-		int toAdd = targetSize - list.size();
-
-		for (int i = 0; i < toAdd; i++) {
-			list.add(null);
-		}
+		this.edges.add(edge);
 	}
 
 	public SparseDelegateIterable<QosEdge> getEdges() {
 		return new SparseDelegateIterable<QosEdge>(this.edges.iterator());
-	}
-
-	public QosEdge getEdge(int edgeIndex) {
-		QosEdge toReturn = null;
-
-		if (this.edges.size() > edgeIndex) {
-			toReturn = this.edges.get(edgeIndex);
-		}
-
-		return toReturn;
-	}
-
-	public int getNumberOfEdges() {
-		return this.noOfEdges;
 	}
 
 	public QosVertex getVertex() {
