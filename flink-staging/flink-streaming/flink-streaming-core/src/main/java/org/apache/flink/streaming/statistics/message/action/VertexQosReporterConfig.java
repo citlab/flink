@@ -105,6 +105,10 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 		return outputDataSetID;
 	}
 
+	public boolean isDummy() {
+		return this.inputGateIndex == -1 || this.outputGateIndex == -1;
+	}
+
 	public SamplingStrategy getSamplingStrategy() {
 		return samplingStrategy;
 	}
@@ -134,9 +138,9 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 			out.writeObject(this.outputDataSetID);
 		}
 
-//		if (!this.isDummy()) {
+		if (!this.isDummy()) {
 			out.writeUTF(samplingStrategy.toString());
-//		}
+		}
 
 		out.writeUTF(this.name);
 	}
@@ -154,9 +158,9 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 			this.outputDataSetID = (IntermediateDataSetID) in.readObject();
 		}
 
-//		if (!this.isDummy()) {
+		if (!this.isDummy()) {
 			this.samplingStrategy = SamplingStrategy.valueOf(in.readUTF());
-//		}
+		}
 
 		this.name = in.readUTF();
 	}
@@ -192,18 +196,26 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 					element.getSamplingStrategy(), element.getName());
 
 		} else if (element.getInputGateIndex() >= 0) {
-			return new VertexQosReporterConfig(
-					vertex.getID(),
-					element.getInputGateIndex(), vertex.getInputs().get(element.getInputGateIndex()).getSourceId(),
-					-1, null,
-					element.getSamplingStrategy(), element.getName());
+			return dummyInputConfig(vertex, element);
 
 		} else {
-			return new VertexQosReporterConfig(
-					vertex.getID(),
-					-1, null,
-					element.getOutputGateIndex(), vertex.getProducedDataSets().get(element.getOutputGateIndex()).getId(),
-					element.getSamplingStrategy(), element.getName());
+			return dummyOutputConfig(vertex, element);
 		}
+	}
+
+	public static VertexQosReporterConfig dummyInputConfig(AbstractJobVertex vertex, SequenceElement element) {
+		return new VertexQosReporterConfig(
+				vertex.getID(),
+				element.getInputGateIndex(), vertex.getInputs().get(element.getInputGateIndex()).getSourceId(),
+				-1, null,
+				element.getSamplingStrategy(), element.getName());
+	}
+
+	public static VertexQosReporterConfig dummyOutputConfig(AbstractJobVertex vertex, SequenceElement element) {
+		return new VertexQosReporterConfig(
+				vertex.getID(),
+				-1, null,
+				element.getOutputGateIndex(), vertex.getProducedDataSets().get(element.getOutputGateIndex()).getId(),
+				element.getSamplingStrategy(), element.getName());
 	}
 }

@@ -517,6 +517,18 @@ public class StreamingJobGraphGenerator {
 					}
 				}
 
+				// corner case: if we have a sequence that starts/ends with an edge
+				// we need to create dummy Qos reporters for the originating/destination
+				// member vertices of the edge. Dummy vertex reporters will not actually
+				// do any reporting, but need to be announced to the Qos manager so it
+				// can build a complete model of the Qos graph.
+				if (sequence.getFirst().isEdge()) {
+					addDummyOutputVertexQosConfig(sequence.getFirst());
+				}
+				if (sequence.getLast().isEdge()) {
+					addDummyInputVertexQosConfig(sequence.getLast());
+				}
+
 				// persist constraints in job graph
 				try {
 					String name = generateConstraintName(identifier, i, sequence);
@@ -540,12 +552,31 @@ public class StreamingJobGraphGenerator {
 		return prefix + "(" + index + ")";
 	}
 
-	/**
-	 * Adds vertex qos reporter config to stream (task) config.
-	 */
+	/** Adds normal vertex qos config (vertex is part of constraint sequence). */
 	private void addVertexQosConfig(SequenceElement e) {
 		AbstractJobVertex vertex = jobGraph.findVertexByID(e.getVertexID());
 		VertexQosReporterConfig reporterConfig = VertexQosReporterConfig.fromSequenceElement(vertex, e);
+		addVertexQosConfig(vertex, reporterConfig);
+	}
+
+	/** Adds dummy vertex qos config (vertex output edge is first element in constraint sequence). */
+	private void addDummyOutputVertexQosConfig(SequenceElement edge) {
+		AbstractJobVertex vertex = jobGraph.findVertexByID(edge.getSourceVertexID());
+		VertexQosReporterConfig reporterConfig = VertexQosReporterConfig.dummyOutputConfig(vertex, edge);
+		addVertexQosConfig(vertex, reporterConfig);
+	}
+
+	/** Adds dummy vertex qos config (vertex input edge is last element in constraint sequence). */
+	private void addDummyInputVertexQosConfig(SequenceElement edge) {
+		AbstractJobVertex vertex = jobGraph.findVertexByID(edge.getTargetVertexID());
+		VertexQosReporterConfig reporterConfig = VertexQosReporterConfig.dummyInputConfig(vertex, edge);
+		addVertexQosConfig(vertex, reporterConfig);
+	}
+
+	/**
+	 * Adds vertex qos reporter config to stream (task) config.
+	 */
+	private void addVertexQosConfig(AbstractJobVertex vertex, VertexQosReporterConfig reporterConfig) {
 		StreamConfig streamConfig = new StreamConfig(vertex.getConfiguration());
 		streamConfig.setBufferTimeout(0);
 		streamConfig.addQosReporterConfigs(reporterConfig);
