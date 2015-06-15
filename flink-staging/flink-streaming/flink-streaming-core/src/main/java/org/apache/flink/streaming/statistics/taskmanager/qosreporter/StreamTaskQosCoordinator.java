@@ -244,7 +244,7 @@ public class StreamTaskQosCoordinator {
 					&& dataSetID.equals(((SingleInputGate) inputGates[inputGateIndex]).getConsumedResultId())) {
 
 				SingleInputGate inputGate = (SingleInputGate) inputGates[inputGateIndex];
-				int subPartitionIndex = this.task.getIndexInSubtaskGroup();
+				int subPartitionIndex = inputGate.getConsumedSubpartitionIndex();
 
 				InputGateReporterManager inputGateReporter = new InputGateReporterManager(forwarderThread,
 						inputGate.getNumberOfInputChannels());

@@ -207,6 +207,10 @@ public class SingleInputGate implements InputGate {
 		return numberOfInputChannels;
 	}
 
+	public int getConsumedSubpartitionIndex() {
+		return consumedSubpartitionIndex;
+	}
+
 	public Collection<InputChannel> getAllInputChannels() {
 		return inputChannels.values();
 	}

@@ -375,8 +375,7 @@ public class QosModel {
 
 			for (ExecutionEdge executionEdge : executionEdges) {
 				QosReporterID.Edge reporterID = QosReporterID.forEdge(
-					executionEdge.getSource().getPartitionId(),
-					memberVertex.getParallelSubtaskIndex()
+					executionEdge.getSource().getPartitionId(), calSubPartitionIndex(executionEdge)
 				);
 
 				if (!this.graphMemberByReporterID.containsKey(reporterID)) {
@@ -385,6 +384,17 @@ public class QosModel {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Calculate sub partition index based on sub task index and consumers.
+	 * @see ExecutionVertex#createDeploymentDescriptor(ExecutionAttemptID, SimpleSlot, SerializedValue)
+	 */
+	private int calSubPartitionIndex(ExecutionEdge edge) {
+		int subTaskIndex = edge.getTarget().getParallelSubtaskIndex();
+		int numConsumerEdges = edge.getSource().getConsumers().get(0).size();
+		int queueToRequest = subTaskIndex % numConsumerEdges;
+		return queueToRequest;
 	}
 
 	// TODO: merge this with assembleQosEdgesFromConfig
