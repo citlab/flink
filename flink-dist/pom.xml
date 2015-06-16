@@ -346,8 +346,24 @@ under the License.
 							<appendAssemblyId>false</appendAssemblyId>
 						</configuration>
 					</execution>
+
+					<execution>
+						<id>lib</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+						<configuration>
+							<descriptors>
+								<descriptor>src/main/assemblies/lib.xml</descriptor>
+							</descriptors>
+							<finalName>flink-${project.version}-lib</finalName>
+							<appendAssemblyId>false</appendAssemblyId>
+						</configuration>
+					</execution>
 				</executions>
 			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-deploy-plugin</artifactId>
