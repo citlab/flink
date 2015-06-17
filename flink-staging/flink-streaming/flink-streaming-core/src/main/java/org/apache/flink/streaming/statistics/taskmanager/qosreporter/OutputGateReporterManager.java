@@ -22,6 +22,8 @@ import org.apache.flink.streaming.statistics.message.qosreport.EdgeStatistics;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.edge.OutputBufferLifetimeSampler;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.BernoulliSampleDesign;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex.CountingGateReporter;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex.ReportTimer;
 import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
 
 import java.util.Collections;
@@ -42,7 +44,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * 
  * @author Bjoern Lohrmann
  */
-public class OutputGateReporterManager {
+public class OutputGateReporterManager extends CountingGateReporter {
 
 	/**
 	 * No need for a thread-safe set because it is only accessed in synchronized
@@ -59,6 +61,8 @@ public class OutputGateReporterManager {
 	private CopyOnWriteArrayList<OutputChannelChannelStatisticsReporter> reportersByChannelIndexInRuntimeGate;
 
 	private QosReportForwarderThread reportForwarder;
+
+	private ReportTimer reportTimer;
 
 	public class OutputChannelChannelStatisticsReporter {
 
@@ -110,69 +114,6 @@ public class OutputGateReporterManager {
 			return this.reporterID;
 		}
 
-		/**
-		 * Returns the channelIndexInRuntimeGate.
-		 * 
-		 * @return the channelIndexInRuntimeGate
-		 */
-		public int getChannelIndexInRuntimeGate() {
-			return this.channelIndexInRuntimeGate;
-		}
-
-		/**
-		 * Returns the timeOfLastReport.
-		 * 
-		 * @return the timeOfLastReport
-		 */
-		public long getTimeOfLastReport() {
-			return this.timeOfLastReport;
-		}
-
-		/**
-		 * Returns the amountTransmittedAtLastReport.
-		 * 
-		 * @return the amountTransmittedAtLastReport
-		 */
-		public long getAmountTransmittedAtLastReport() {
-			return this.amountTransmittedAtLastReport;
-		}
-
-		/**
-		 * Returns the currentAmountTransmitted.
-		 * 
-		 * @return the currentAmountTransmitted
-		 */
-		public long getCurrentAmountTransmitted() {
-			return this.currentAmountTransmitted;
-		}
-
-		/**
-		 * Returns the recordsEmittedSinceLastReport.
-		 * 
-		 * @return the recordsEmittedSinceLastReport
-		 */
-		public int getRecordsEmittedSinceLastReport() {
-			return this.recordsEmittedSinceLastReport;
-		}
-
-		/**
-		 * Returns the outputBuffersSentSinceLastReport.
-		 * 
-		 * @return the outputBuffersSentSinceLastReport
-		 */
-		public int getOutputBuffersSentSinceLastReport() {
-			return this.outputBuffersSentSinceLastReport;
-		}
-
-		/**
-		 * Returns the recordsSinceLastTag.
-		 * 
-		 * @return the recordsSinceLastTag
-		 */
-		public int getRecordsSinceLastTag() {
-			return this.recordsSinceLastTag;
-		}
-
 		public void sendReportIfDue(long now) {
 			if (this.reportIsDue(now)) {
 				this.sendReport(now);
@@ -181,9 +122,7 @@ public class OutputGateReporterManager {
 		}
 
 		private boolean reportIsDue(long now) {
-			return now - this.timeOfLastReport >
-						OutputGateReporterManager.this.reportForwarder.getAggregationInterval()
-					&& this.recordsEmittedSinceLastReport > 0
+			return this.recordsEmittedSinceLastReport > 0
 					&& this.outputBuffersSentSinceLastReport > 0
 					&& this.outputBufferLifetimeSampler.hasSample();
 		}
@@ -233,7 +172,6 @@ public class OutputGateReporterManager {
 			this.outputBuffersSentSinceLastReport++;
 			this.currentAmountTransmitted = currentAmountTransmitted;
 			this.outputBufferLifetimeSampler.outputBufferSent();
-			sendReportIfDue(System.currentTimeMillis());
 		}
 
 		public void outputBufferAllocated() {
@@ -241,14 +179,22 @@ public class OutputGateReporterManager {
 		}
 	}
 
+	public OutputGateReporterManager() {
+	}
+
 	public OutputGateReporterManager(QosReportForwarderThread qosReporter,
 			int noOfOutputChannels) {
 
+		initReporter(qosReporter, noOfOutputChannels);
+	}
+
+	public void initReporter(QosReportForwarderThread qosReporter, int noOfOutputChannels) {
 		this.reportForwarder = qosReporter;
 		this.reporters = new HashSet<QosReporterID>();
 		this.reportersByChannelIndexInRuntimeGate = new CopyOnWriteArrayList<OutputChannelChannelStatisticsReporter>();
 		Collections.addAll(this.reportersByChannelIndexInRuntimeGate,
 				new OutputChannelChannelStatisticsReporter[noOfOutputChannels]);
+		setReporter(true);
 	}
 
 	public void recordEmitted(int channelIndex, TimeStampedRecord record) {
@@ -269,6 +215,8 @@ public class OutputGateReporterManager {
 		if (reporter != null) {
 			reporter.outputBufferSent(currentAmountTransmitted);
 		}
+
+		sendReportsIfDue(System.currentTimeMillis());
 	}
 
 	public void outputBufferAllocated(int runtimeGateChannelIndex) {
@@ -277,6 +225,17 @@ public class OutputGateReporterManager {
 
 		if (reporter != null) {
 			reporter.outputBufferAllocated();
+		}
+	}
+
+	public void sendReportsIfDue(long now) {
+		if (reportTimer.reportIsDue()) {
+			for (OutputChannelChannelStatisticsReporter reporter : reportersByChannelIndexInRuntimeGate) {
+				if (reporter != null) {
+					reporter.sendReportIfDue(now);
+				}
+			}
+			reportTimer.reset(now);
 		}
 	}
 

@@ -16,21 +16,17 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex;
-
-import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.BernoulliSampler;
-import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.Sample;
+package org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling;
 
 /**
  * Samples the elapsed time between a read on a specific input gate identified
  * and the beginning of the next attempt read on any other input gate. Elapsed time is sampled in
  * microseconds.
  */
-public class InputGateInterReadTimeSampler {
-	
+public class InputGateInterReadTimeSampler implements Sampler {
+
 	/**
-	 * Samples the elapsed time between a read on the input gate identified
-	 * {@link #inputGateIndex} and the next read on any other input gate.
+	 * Samples the elapsed time between a read on the input gate and the next read on any other input gate.
 	 * Elapsed time is sampled in microseconds.
 	 */
 	private final BernoulliSampler readReadTimeSampler;
@@ -55,11 +51,13 @@ public class InputGateInterReadTimeSampler {
 			lastSampleReadTime = -1;
 		}
 	}
-	
+
+	@Override
 	public boolean hasSample() {
 		return readReadTimeSampler.hasSample();
 	}
 
+	@Override
 	public Sample drawSampleAndReset(long now) {
 		return readReadTimeSampler.drawSampleAndReset(now);
 	}

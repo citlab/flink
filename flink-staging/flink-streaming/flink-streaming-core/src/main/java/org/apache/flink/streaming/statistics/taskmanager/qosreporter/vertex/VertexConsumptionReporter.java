@@ -20,6 +20,7 @@ package org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex;
 
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosReportForwarderThread;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.InputGateInterReadTimeSampler;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.Sample;
 
 public class VertexConsumptionReporter extends AbstractVertexQosReporter {
@@ -28,7 +29,7 @@ public class VertexConsumptionReporter extends AbstractVertexQosReporter {
 	
 	public VertexConsumptionReporter(QosReportForwarderThread reportForwarder,
 			QosReporterID.Vertex reporterID, int runtimeInputGateIndex,
-			InputGateReceiveCounter igReceiveCounter) {
+			CountingGateReporter igReceiveCounter) {
 
 		super(reportForwarder, reporterID,
 				new ReportTimer(reportForwarder.getAggregationInterval()),

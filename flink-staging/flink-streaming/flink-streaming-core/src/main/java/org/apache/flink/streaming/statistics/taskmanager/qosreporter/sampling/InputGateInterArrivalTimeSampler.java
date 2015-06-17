@@ -16,13 +16,13 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex;
+package org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling;
 
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.BernoulliSampler;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.Sample;
 import org.apache.flink.streaming.statistics.util.StreamUtil;
 
-public class InputGateInterArrivalTimeSampler {
+public class InputGateInterArrivalTimeSampler implements Sampler {
 	
 	/**
 	 * Samples records interarrival times in microseconds. These are computed
@@ -84,11 +84,13 @@ public class InputGateInterArrivalTimeSampler {
 			accBufferInterarrivalTimes[channelIndex] = Long.valueOf(0);
 		}
 	}
-	
+
+	@Override
 	public boolean hasSample() {
 		return interarrivalTimeSampler.hasSample();
 	}
-	
+
+	@Override
 	public Sample drawSampleAndReset(long now) {
 		return interarrivalTimeSampler.drawSampleAndReset(now);
 	}

@@ -25,7 +25,7 @@ public class VertexEmissionReporter extends AbstractVertexQosReporter {
 
 	public VertexEmissionReporter(QosReportForwarderThread reportForwarder,
 			QosReporterID.Vertex reporterID, int runtimeOutputGateIndex,
-			OutputGateEmitStatistics emitCounter) {
+			CountingGateReporter emitCounter) {
 
 		super(reportForwarder, reporterID,
 				new ReportTimer(reportForwarder.getAggregationInterval()),

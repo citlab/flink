@@ -32,8 +32,11 @@ import org.apache.flink.streaming.statistics.message.action.EdgeQosReporterConfi
 import org.apache.flink.streaming.statistics.message.action.QosReporterConfig;
 import org.apache.flink.streaming.statistics.message.action.VertexQosReporterConfig;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.InputGateQosReportingListener;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.OutputGateQosReportingListener;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.QosReportingListenerHelper;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex.VertexStatisticsReportManager;
+import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,9 +46,9 @@ import java.util.List;
  * An instance of this class implements Qos data reporting for a specific vertex
  * and its ingoing/outgoing edges on a task manager while the vertex actually
  * runs.
- * 
+ *
  * This class is thread-safe.
- * 
+ *
  * @author Bjoern Lohrmann, Sascha Wolke
  */
 public class StreamTaskQosCoordinator {
@@ -261,6 +264,59 @@ public class StreamTaskQosCoordinator {
 
 		if (!installed) {
 			throw new RuntimeException("Failed to install EdgeQosReporter. This is bug.");
+		}
+	}
+
+
+	private class InputGateListener implements InputGateQosReportingListener {
+		private int recordsReadFromBuffer = 0;
+		private final int gateIndex;
+
+		public InputGateListener(int gateIndex) {
+			this.gateIndex = gateIndex;
+		}
+
+		@Override
+		public void recordReceived(int channelIndex, TimeStampedRecord record) {
+			vertexStatisticsManager.recordReceived(gateIndex);
+			if (record.hasTimestamp()) {
+				vertexStatisticsManager.reportLatenciesIfNecessary(gateIndex, channelIndex, record.getTimestamp());
+			}
+			++recordsReadFromBuffer;
+		}
+
+		@Override
+		public void tryingToReadRecord() {
+			vertexStatisticsManager.tryingToReadRecord(gateIndex);
+		}
+
+		@Override
+		public void inputBufferConsumed(int channelIndex, long bufferInterarrivalTimeNanos) {
+			vertexStatisticsManager.inputBufferConsumed(gateIndex, channelIndex, bufferInterarrivalTimeNanos,
+					recordsReadFromBuffer);
+		}
+	}
+
+	private class OutputGateListener implements OutputGateQosReportingListener {
+		private final int gateIndex;
+
+		public OutputGateListener(int gateIndex) {
+			this.gateIndex = gateIndex;
+		}
+
+		@Override
+		public void outputBufferSent(int channelIndex, long currentAmountTransmitted) {
+			vertexStatisticsManager.outputBufferSent(gateIndex, channelIndex, currentAmountTransmitted);
+		}
+
+		@Override
+		public void recordEmitted(int outputChannel, TimeStampedRecord record) {
+			vertexStatisticsManager.recordEmitted(gateIndex, outputChannel, record);
+		}
+
+		@Override
+		public void outputBufferAllocated(int channelIndex) {
+			vertexStatisticsManager.outputBufferAllocated(gateIndex, channelIndex);
 		}
 	}
 }

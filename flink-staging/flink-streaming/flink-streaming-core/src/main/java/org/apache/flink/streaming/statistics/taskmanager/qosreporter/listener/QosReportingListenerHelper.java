@@ -79,7 +79,7 @@ public class QosReportingListenerHelper {
 
 			@Override
 			public void recordEmitted(int outputChannel, TimeStampedRecord record) {
-				vertexStatisticsManager.recordEmitted(outputGateIndex);
+				vertexStatisticsManager.recordEmitted(outputGateIndex, outputChannel, record);
 			}
 
 			@Override

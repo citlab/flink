@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosReportForwarderThread;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.InputGateInterArrivalTimeSampler;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.InputGateInterReadTimeSampler;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.Sample;
 
 /**
@@ -41,7 +43,7 @@ public class ReadReadVertexQosReporterGroup implements VertexQosReporter {
 	
 	private final ReportTimer reportTimer;
 	
-	private final InputGateReceiveCounter igReceiveCounter;
+	private final CountingGateReporter igReceiveCounter;
 	private long igReceiveCounterAtLastReport;
 	
 	private final InputGateInterArrivalTimeSampler igInterArrivalTimeSampler;
@@ -52,7 +54,7 @@ public class ReadReadVertexQosReporterGroup implements VertexQosReporter {
 
 	public ReadReadVertexQosReporterGroup(
 			QosReportForwarderThread reportForwarder, int inputGateIndex,
-			InputGateReceiveCounter igReceiveCounter) {
+			CountingGateReporter igReceiveCounter) {
 
 		this.inputGateIndex = inputGateIndex;
 
@@ -63,7 +65,7 @@ public class ReadReadVertexQosReporterGroup implements VertexQosReporter {
 				reportForwarder.getSamplingProbability() / 100.0);
 
 		this.igReceiveCounter = igReceiveCounter;
-		this.igReceiveCounterAtLastReport = igReceiveCounter.getRecordsReceived();		
+		this.igReceiveCounterAtLastReport = igReceiveCounter.getRecordsCount();
 		
 		this.reportTimer = new ReportTimer(reportForwarder.getAggregationInterval());
 	}
@@ -96,9 +98,9 @@ public class ReadReadVertexQosReporterGroup implements VertexQosReporter {
 	private double getRecordsConsumedPerSec(double secsPassed) {
 		double recordsConsumedPerSec = -1;
 		if (igReceiveCounter != null) {
-			recordsConsumedPerSec = (igReceiveCounter.getRecordsReceived() - igReceiveCounterAtLastReport)
+			recordsConsumedPerSec = (igReceiveCounter.getRecordsCount() - igReceiveCounterAtLastReport)
 					/ secsPassed;
-			igReceiveCounterAtLastReport = igReceiveCounter.getRecordsReceived();
+			igReceiveCounterAtLastReport = igReceiveCounter.getRecordsCount();
 		}
 		return recordsConsumedPerSec;
 	}

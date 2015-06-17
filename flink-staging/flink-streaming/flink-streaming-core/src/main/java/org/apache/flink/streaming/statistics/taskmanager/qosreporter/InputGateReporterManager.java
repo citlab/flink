@@ -24,6 +24,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.flink.streaming.statistics.message.qosreport.EdgeLatency;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex.CountingGateReporter;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex.ReportTimer;
 
 /**
  * A instance of this class keeps track of and reports on the latencies of an
@@ -39,7 +41,7 @@ import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
  * 
  * @author Bjoern Lohrmann
  */
-public class InputGateReporterManager {
+public class InputGateReporterManager extends CountingGateReporter {
 
 	/**
 	 * No need for a thread-safe set because it is only accessed in synchronized
@@ -56,11 +58,11 @@ public class InputGateReporterManager {
 
 	private QosReportForwarderThread reportForwarder;
 
+	private ReportTimer reportTimer;
+
 	private class EdgeLatencyReporter {
 
 		public QosReporterID.Edge reporterID;
-
-		long timeOfNextReport;
 
 		long accumulatedLatency;
 
@@ -81,12 +83,10 @@ public class InputGateReporterManager {
 		}
 
 		public boolean reportIsDue(long now) {
-			return this.tagsReceived > 0 && now >= this.timeOfNextReport;
+			return this.tagsReceived > 0;
 		}
 
 		public void reset(long now) {
-			this.timeOfNextReport = now
-					+ InputGateReporterManager.this.reportForwarder.getAggregationInterval();
 			this.accumulatedLatency = 0;
 			this.tagsReceived = 0;
 		}
@@ -99,13 +99,21 @@ public class InputGateReporterManager {
 		}
 	}
 
+	public InputGateReporterManager() {
+	}
+
 	public InputGateReporterManager(QosReportForwarderThread qosReporter,
 			int noOfInputChannels) {
+		initReporter(qosReporter, noOfInputChannels);
+	}
 
+	public void initReporter(QosReportForwarderThread qosReporter, int noOfInputChannels) {
 		this.reportForwarder = qosReporter;
 		this.reportersByChannelIndexInRuntimeGate = new CopyOnWriteArrayList<EdgeLatencyReporter>();
 		this.fillChannelLatenciesWithNulls(noOfInputChannels);
 		this.reporters = new HashSet<QosReporterID>();
+		this.reportTimer = new ReportTimer(this.reportForwarder.getAggregationInterval());
+		setReporter(true);
 	}
 
 	private void fillChannelLatenciesWithNulls(int noOfInputChannels) {
@@ -115,13 +123,25 @@ public class InputGateReporterManager {
 
 	public void reportLatencyIfNecessary(int channelIndex, long timestamp) {
 
+		long now = System.currentTimeMillis();
+
 		EdgeLatencyReporter info = this.reportersByChannelIndexInRuntimeGate
 				.get(channelIndex);
-
 		if (info != null) {
-			long now = System.currentTimeMillis();
 			info.update(timestamp, now);
-			info.sendReportIfDue(now);
+		}
+
+		sendReportsIfDue(now);
+	}
+
+	private void sendReportsIfDue(long now) {
+		if (reportTimer.reportIsDue()) {
+			for (EdgeLatencyReporter reporter : reportersByChannelIndexInRuntimeGate) {
+				if (reporter != null) {
+					reporter.sendReportIfDue(now);
+				}
+			}
+			reportTimer.reset(now);
 		}
 	}
 
@@ -138,7 +158,6 @@ public class InputGateReporterManager {
 
 		EdgeLatencyReporter info = new EdgeLatencyReporter();
 		info.reporterID = reporterID;
-		info.timeOfNextReport = System.currentTimeMillis();
 		info.accumulatedLatency = 0;
 		info.tagsReceived = 0;
 		this.reportersByChannelIndexInRuntimeGate.set(

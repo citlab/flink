@@ -34,7 +34,7 @@ package org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling;
  * @author Bjoern Lohrmann
  *
  */
-public class BernoulliSampler {
+public class BernoulliSampler implements Sampler {
 
 	private final BernoulliSampleDesign samplingDesign;
 
@@ -65,6 +65,7 @@ public class BernoulliSampler {
 		}
 	}
 
+	@Override
 	public boolean hasSample() {
 		return noSamplePoints > 1;
 	}
@@ -77,6 +78,7 @@ public class BernoulliSampler {
 		return s / (noSamplePoints - 1);
 	}
 
+	@Override
 	public Sample drawSampleAndReset(long now) {
 		Sample sample = new Sample((int) (now - samplingBeginTime),
 				noSamplePoints, getMean(), getVariance());

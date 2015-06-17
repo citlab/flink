@@ -21,6 +21,7 @@ package org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex;
 import org.apache.flink.streaming.statistics.message.qosreport.VertexStatistics;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosReporterID;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosReportForwarderThread;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.InputGateInterArrivalTimeSampler;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.sampling.Sample;
 
 public abstract class AbstractVertexQosReporter implements VertexQosReporter {
@@ -32,11 +33,11 @@ public abstract class AbstractVertexQosReporter implements VertexQosReporter {
 	private final ReportTimer reportTimer;
 
 	private long igReceiveCounterAtLastReport;
-	private final InputGateReceiveCounter igReceiveCounter;
+	private final CountingGateReporter igReceiveCounter;
 	private final InputGateInterArrivalTimeSampler igInterarrivalTimeSampler;
 
 	private long ogEmitCounterAtLastReport;
-	private final OutputGateEmitStatistics ogEmitCounter;
+	private final CountingGateReporter ogEmitCounter;
 
 	private final int runtimeInputGateIndex;
 
@@ -45,8 +46,8 @@ public abstract class AbstractVertexQosReporter implements VertexQosReporter {
 	public AbstractVertexQosReporter(QosReportForwarderThread reportForwarder,
 			QosReporterID.Vertex reporterID, ReportTimer reportTimer,
 			int runtimeInputGateIndex,
-			int runtimeOutputGateIndex, InputGateReceiveCounter igReceiveCounter,
-			OutputGateEmitStatistics emitCounter) {
+			int runtimeOutputGateIndex, CountingGateReporter igReceiveCounter,
+			CountingGateReporter emitCounter) {
 
 		this.reportForwarder = reportForwarder;
 		this.reporterID = reporterID;
@@ -56,7 +57,7 @@ public abstract class AbstractVertexQosReporter implements VertexQosReporter {
 		this.runtimeOutputGateIndex = runtimeOutputGateIndex;
 
 		if (reporterID.hasInputDataSetID()) {
-			this.igReceiveCounterAtLastReport = igReceiveCounter.getRecordsReceived();
+			this.igReceiveCounterAtLastReport = igReceiveCounter.getRecordsCount();
 			this.igReceiveCounter = igReceiveCounter;
 			this.igInterarrivalTimeSampler = new InputGateInterArrivalTimeSampler(
 					reportForwarder.getSamplingProbability() / 100.0);
@@ -66,7 +67,7 @@ public abstract class AbstractVertexQosReporter implements VertexQosReporter {
 		}
 
 		if (reporterID.hasOutputDataSetID()) {
-			this.ogEmitCounterAtLastReport = emitCounter.getEmitted();
+			this.ogEmitCounterAtLastReport = emitCounter.getRecordsCount();
 			this.ogEmitCounter = emitCounter;
 		} else {
 			this.ogEmitCounter = null;
@@ -123,9 +124,9 @@ public abstract class AbstractVertexQosReporter implements VertexQosReporter {
 	private double getRecordsConsumedPerSec(double secsPassed) {
 		double recordsConsumedPerSec = -1;
 		if (igReceiveCounter != null) {
-			recordsConsumedPerSec = (igReceiveCounter.getRecordsReceived() - igReceiveCounterAtLastReport)
+			recordsConsumedPerSec = (igReceiveCounter.getRecordsCount() - igReceiveCounterAtLastReport)
 					/ secsPassed;
-			igReceiveCounterAtLastReport = igReceiveCounter.getRecordsReceived();
+			igReceiveCounterAtLastReport = igReceiveCounter.getRecordsCount();
 		}
 		return recordsConsumedPerSec;
 	}
@@ -133,9 +134,9 @@ public abstract class AbstractVertexQosReporter implements VertexQosReporter {
 	private double getRecordsEmittedPerSec(double secsPassed) {
 		double recordEmittedPerSec = -1;
 		if (ogEmitCounter != null) {
-			recordEmittedPerSec = (ogEmitCounter.getEmitted() - ogEmitCounterAtLastReport)
+			recordEmittedPerSec = (ogEmitCounter.getRecordsCount() - ogEmitCounterAtLastReport)
 					/ secsPassed;
-			ogEmitCounterAtLastReport = ogEmitCounter.getEmitted();
+			ogEmitCounterAtLastReport = ogEmitCounter.getRecordsCount();
 		}
 		return recordEmittedPerSec;
 	}

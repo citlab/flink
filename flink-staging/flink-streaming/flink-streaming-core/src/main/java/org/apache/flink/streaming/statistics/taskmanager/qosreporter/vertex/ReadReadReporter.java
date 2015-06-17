@@ -35,7 +35,7 @@ public class ReadReadReporter implements VertexQosReporter {
 	private final ReportTimer reportTimer;
 
 	private long emitCounterAtLastReport;
-	private final OutputGateEmitStatistics outputGateEmitCounter;
+	private final CountingGateReporter outputGateEmitCounter;
 
 	private final int runtimeInputGateIndex;
 
@@ -46,8 +46,8 @@ public class ReadReadReporter implements VertexQosReporter {
 			ReportTimer reportTimer,
 			int runtimeInputGateIndex,
 			int runtimeOutputGateIndex,
-			InputGateReceiveCounter igReceiveCounter,
-			OutputGateEmitStatistics emitCounter) {
+			CountingGateReporter igReceiveCounter,
+			CountingGateReporter emitCounter) {
 
 		this.reportForwarder = reportForwarder;
 		this.reporterID = reporterID;
@@ -56,7 +56,7 @@ public class ReadReadReporter implements VertexQosReporter {
 		this.runtimeInputGateIndex = runtimeInputGateIndex;
 		this.runtimeOutputGateIndex = runtimeOutputGateIndex;
 
-		emitCounterAtLastReport = emitCounter.getEmitted();
+		emitCounterAtLastReport = emitCounter.getRecordsCount();
 		this.outputGateEmitCounter = emitCounter;
 	}
 	
@@ -78,9 +78,9 @@ public class ReadReadReporter implements VertexQosReporter {
 	private double getRecordsEmittedPerSec(double secsPassed) {
 		double recordEmittedPerSec = -1;
 		if (outputGateEmitCounter != null) {
-			recordEmittedPerSec = (outputGateEmitCounter.getEmitted() - emitCounterAtLastReport)
+			recordEmittedPerSec = (outputGateEmitCounter.getRecordsCount() - emitCounterAtLastReport)
 					/ secsPassed;
-			emitCounterAtLastReport = outputGateEmitCounter.getEmitted();
+			emitCounterAtLastReport = outputGateEmitCounter.getRecordsCount();
 		}
 		return recordEmittedPerSec;
 	}
