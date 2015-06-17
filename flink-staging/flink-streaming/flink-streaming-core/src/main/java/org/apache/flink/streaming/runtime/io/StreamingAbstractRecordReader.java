@@ -32,6 +32,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.streaming.runtime.tasks.StreamingSuperstep;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosReportingReader;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.InputGateQosReportingListener;
 import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
 import org.slf4j.Logger;
@@ -47,7 +48,7 @@ import org.slf4j.LoggerFactory;
  *            The type of the record that can be read with this record reader.
  */
 public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable> extends
-		AbstractReader implements ReaderBase, StreamingReader {
+		AbstractReader implements ReaderBase, StreamingReader, QosReportingReader {
 
 	@SuppressWarnings("unused")
 	private static final Logger LOG = LoggerFactory.getLogger(StreamingAbstractRecordReader.class);
@@ -162,12 +163,20 @@ public abstract class StreamingAbstractRecordReader<T extends IOReadableWritable
 		barrierBuffer.cleanup();
 	}
 
-	public InputGateQosReportingListener getQosCallback() {
-		return qosCallback;
+	public InputGateQosReportingListener getQosCallback(int index) {
+		if (index == 0) {
+			return qosCallback;
+		} else {
+			throw new IllegalArgumentException("Only one InputGate available with index = 0.");
+		}
 	}
 
-	public void setQosCallback(InputGateQosReportingListener qosCallback) {
-		this.qosCallback = qosCallback;
-		this.bufferInterarrivalTimeNanos = -1;
+	public void setQosCallback(InputGateQosReportingListener qosCallback, int index) {
+		if (index == 0) {
+			this.qosCallback = qosCallback;
+			this.bufferInterarrivalTimeNanos = -1;
+		} else {
+			throw new IllegalArgumentException("Only one InputGate available with index = 0.");
+		}
 	}
 }

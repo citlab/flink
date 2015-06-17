@@ -30,8 +30,12 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.UnionInputGate;
+import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.runtime.util.event.EventListener;
 import org.apache.flink.streaming.runtime.tasks.StreamingSuperstep;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosReportingReader;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener.InputGateQosReportingListener;
+import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
 
 /**
  * A CoRecordReader wraps {@link MutableRecordReader}s of two different input
@@ -39,7 +43,7 @@ import org.apache.flink.streaming.runtime.tasks.StreamingSuperstep;
  */
 @SuppressWarnings("rawtypes")
 public class CoRecordReader<T1 extends IOReadableWritable, T2 extends IOReadableWritable> extends
-		AbstractReader implements EventListener<InputGate>, StreamingReader {
+		AbstractReader implements EventListener<InputGate>, StreamingReader, QosReportingReader {
 
 	private final InputGate bufferReader1;
 
@@ -64,6 +68,15 @@ public class CoRecordReader<T1 extends IOReadableWritable, T2 extends IOReadable
 
 	protected CoBarrierBuffer barrierBuffer1;
 	protected CoBarrierBuffer barrierBuffer2;
+
+	private int reader1currentRecordDeserializerIndex;
+	private int reader2currentRecordDeserializerIndex;
+
+	private InputGateQosReportingListener qosCallback1;
+	private InputGateQosReportingListener qosCallback2;
+
+	private long bufferInterarrivalTimeNanos1;
+	private long bufferInterarrivalTimeNanos2;
 
 	public CoRecordReader(InputGate inputgate1, InputGate inputgate2) {
 		super(new UnionInputGate(inputgate1, inputgate2));
@@ -129,9 +142,24 @@ public class CoRecordReader<T1 extends IOReadableWritable, T2 extends IOReadable
 							reader1currentRecordDeserializer = null;
 
 							currentReaderIndex = 0;
+
+							if (qosCallback1 != null) {
+								qosCallback1.inputBufferConsumed(reader1currentRecordDeserializerIndex, bufferInterarrivalTimeNanos1);
+								bufferInterarrivalTimeNanos1 = -1;
+							}
 						}
 
 						if (result.isFullRecord()) {
+							if (qosCallback1 != null && target1 instanceof TimeStampedRecord) {
+								qosCallback1.recordReceived(reader1currentRecordDeserializerIndex, (TimeStampedRecord) target1);
+
+							} else if (qosCallback1 != null
+									&& target1 instanceof DeserializationDelegate
+									&& ((DeserializationDelegate) target1).getInstance() instanceof TimeStampedRecord) {
+
+								qosCallback1.recordReceived(reader1currentRecordDeserializerIndex,
+										(TimeStampedRecord) ((DeserializationDelegate) target1).getInstance());
+							}
 							return 1;
 						}
 					} else {
@@ -139,9 +167,10 @@ public class CoRecordReader<T1 extends IOReadableWritable, T2 extends IOReadable
 						final BufferOrEvent boe = barrierBuffer1.getNextNonBlocked();
 
 						if (boe.isBuffer()) {
-							reader1currentRecordDeserializer = reader1RecordDeserializers[boe
-									.getChannelIndex()];
+							reader1currentRecordDeserializerIndex = boe.getChannelIndex();
+							reader1currentRecordDeserializer = reader1RecordDeserializers[reader1currentRecordDeserializerIndex];
 							reader1currentRecordDeserializer.setNextBuffer(boe.getBuffer());
+							bufferInterarrivalTimeNanos1 = boe.getBufferInterarrivalTimeNanos();
 						} else if (boe.getEvent() instanceof StreamingSuperstep) {
 							barrierBuffer1.processSuperstep(boe);
 							currentReaderIndex = 0;
@@ -165,18 +194,35 @@ public class CoRecordReader<T1 extends IOReadableWritable, T2 extends IOReadable
 							reader2currentRecordDeserializer = null;
 
 							currentReaderIndex = 0;
+
+
+							if (qosCallback2 != null) {
+								qosCallback2.inputBufferConsumed(reader2currentRecordDeserializerIndex, bufferInterarrivalTimeNanos2);
+								bufferInterarrivalTimeNanos2 = -1;
+							}
 						}
 
 						if (result.isFullRecord()) {
+							if (qosCallback2 != null && target2 instanceof TimeStampedRecord) {
+								qosCallback2.recordReceived(reader2currentRecordDeserializerIndex, (TimeStampedRecord) target2);
+
+							} else if (qosCallback2 != null
+									&& target2 instanceof DeserializationDelegate
+									&& ((DeserializationDelegate) target2).getInstance() instanceof TimeStampedRecord) {
+
+								qosCallback2.recordReceived(reader2currentRecordDeserializerIndex,
+										(TimeStampedRecord) ((DeserializationDelegate) target2).getInstance());
+							}
 							return 2;
 						}
 					} else {
 						final BufferOrEvent boe = barrierBuffer2.getNextNonBlocked();
 
 						if (boe.isBuffer()) {
-							reader2currentRecordDeserializer = reader2RecordDeserializers[boe
-									.getChannelIndex()];
+							reader2currentRecordDeserializerIndex = boe.getChannelIndex();
+							reader2currentRecordDeserializer = reader2RecordDeserializers[reader2currentRecordDeserializerIndex];
 							reader2currentRecordDeserializer.setNextBuffer(boe.getBuffer());
+							bufferInterarrivalTimeNanos2 = boe.getBufferInterarrivalTimeNanos();
 						} else if (boe.getEvent() instanceof StreamingSuperstep) {
 							barrierBuffer2.processSuperstep(boe);
 							currentReaderIndex = 0;
@@ -285,5 +331,29 @@ public class CoRecordReader<T1 extends IOReadableWritable, T2 extends IOReadable
 			barrierBuffer2.cleanup();
 		}
 
+	}
+
+	@Override
+	public InputGateQosReportingListener getQosCallback(int index) {
+		if (index == 0) {
+			return qosCallback1;
+		} else if (index == 1) {
+			return qosCallback2;
+		} else {
+			throw new IllegalArgumentException("Only two InputGate's available with index = 0 and index = 1.");
+		}
+	}
+
+	@Override
+	public void setQosCallback(InputGateQosReportingListener qosCallback, int index) {
+		if (index == 0) {
+			this.qosCallback1 = qosCallback;
+			this.bufferInterarrivalTimeNanos1 = -1;
+		} else if (index == 1) {
+			this.qosCallback2 = qosCallback;
+			this.bufferInterarrivalTimeNanos2 = -1;
+		} else {
+			throw new IllegalArgumentException("Only two InputGate's available with index = 0 and index = 1.");
+		}
 	}
 }

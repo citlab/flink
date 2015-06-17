@@ -158,6 +158,9 @@ public class TwoInputStreamTask<IN1, IN2, OUT> extends StreamTask<OUT, TwoInputS
 
 		coReader = new CoRecordReader<DeserializationDelegate<StreamRecord<IN1>>, DeserializationDelegate<StreamRecord<IN2>>>(
 				reader1, reader2);
+		if (qosCoordinator != null) {
+			qosCoordinator.setupInputQosListener(coReader);
+		}
 		coIter = new CoReaderIterator<StreamRecord<IN1>, StreamRecord<IN2>>(coReader,
 				inputDeserializer1, inputDeserializer2);
 	}

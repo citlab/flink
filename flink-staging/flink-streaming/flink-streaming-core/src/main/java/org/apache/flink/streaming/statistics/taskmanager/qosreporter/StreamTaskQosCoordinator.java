@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.streaming.api.graph.StreamConfig;
+import org.apache.flink.streaming.runtime.io.CoRecordReader;
 import org.apache.flink.streaming.runtime.io.StreamRecordWriter;
 import org.apache.flink.streaming.runtime.io.StreamingAbstractRecordReader;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
@@ -131,7 +132,7 @@ public class StreamTaskQosCoordinator {
 //		TODO
 //	}
 
-	public void setupInputQosListener(StreamingAbstractRecordReader<?> input, int inputIndex) {
+	private void setupInputQosListener(QosReportingReader input, int inputIndex) {
 		StreamConfig taskConfig = new StreamConfig(this.task.getTaskConfiguration());
 		List<QosReporterConfig> qosReporterConfigs = taskConfig.getQosReporterConfigs();
 
@@ -143,7 +144,7 @@ public class StreamTaskQosCoordinator {
 				final VertexStatisticsReportManager vertexStatisticsManager = this.getOrCreateVertexStatisticsManager();
 
 				IntermediateDataSetID inputDataSetID = vertexConfig.getInputDataSetID();
-				final int inputGateIndex = vertexConfig.getInputGateIndex(); // must be -1 or 0
+				final int inputGateIndex = vertexConfig.getInputGateIndex();
 				if (inputDataSetID != null && inputIndex == inputGateIndex) {
 					QosReportingListenerHelper.listenToVertexStatisticsOnInputGate(input, inputGateIndex,
 							vertexStatisticsManager);
@@ -152,13 +153,22 @@ public class StreamTaskQosCoordinator {
 			} else if (config instanceof EdgeQosReporterConfig) {
 				EdgeQosReporterConfig edgeConfig = (EdgeQosReporterConfig) config;
 
-				int inputGateIndex = edgeConfig.getInputGateIndex(); // must be -1 or 0
+				int inputGateIndex = edgeConfig.getInputGateIndex();
 				if (edgeConfig.isTargetTaskConfig() && inputGateIndex == inputIndex) {
 					InputGateReporterManager inputGateReporter = inputGateReporters[inputIndex];
-					QosReportingListenerHelper.listenToChannelLatenciesOnInputGate(input, inputGateReporter);
+					QosReportingListenerHelper.listenToChannelLatenciesOnInputGate(input, inputIndex, inputGateReporter);
 				}
 			}
 		}
+	}
+
+	public void setupInputQosListener(StreamingAbstractRecordReader<?> input) {
+		setupInputQosListener(input, 0);
+	}
+
+	public void setupInputQosListener(CoRecordReader<?, ?> input) {
+		setupInputQosListener(input, 0);
+		setupInputQosListener(input, 1);
 	}
 
 	public void setupOutputQosListener(StreamRecordWriter<?> writer, int outputIndex) {

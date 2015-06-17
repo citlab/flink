@@ -19,9 +19,9 @@
 package org.apache.flink.streaming.statistics.taskmanager.qosreporter.listener;
 
 import org.apache.flink.streaming.runtime.io.StreamRecordWriter;
-import org.apache.flink.streaming.runtime.io.StreamingAbstractRecordReader;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.InputGateReporterManager;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.OutputGateReporterManager;
+import org.apache.flink.streaming.statistics.taskmanager.qosreporter.QosReportingReader;
 import org.apache.flink.streaming.statistics.taskmanager.qosreporter.vertex.VertexStatisticsReportManager;
 import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
 
@@ -35,7 +35,7 @@ import org.apache.flink.streaming.statistics.types.TimeStampedRecord;
  */
 public class QosReportingListenerHelper {
 
-	public static void listenToVertexStatisticsOnInputGate(StreamingAbstractRecordReader<?> input,
+	public static void listenToVertexStatisticsOnInputGate(QosReportingReader input,
 			final int inputGateIndex, final VertexStatisticsReportManager vertexStatisticsManager) {
 
 		InputGateQosReportingListener listener = new InputGateQosReportingListener() {
@@ -60,11 +60,11 @@ public class QosReportingListenerHelper {
 			}
 		};
 
-		InputGateQosReportingListener oldListener = input.getQosCallback();
+		InputGateQosReportingListener oldListener = input.getQosCallback(inputGateIndex);
 		if (oldListener != null) {
-			input.setQosCallback(createChainedListener(oldListener, listener));
+			input.setQosCallback(createChainedListener(oldListener, listener), inputGateIndex);
 		} else {
-			input.setQosCallback(listener);
+			input.setQosCallback(listener, inputGateIndex);
 		}
 	}
 
@@ -97,7 +97,7 @@ public class QosReportingListenerHelper {
 		}
 	}
 
-	public static void listenToChannelLatenciesOnInputGate(StreamingAbstractRecordReader<?> input,
+	public static void listenToChannelLatenciesOnInputGate(QosReportingReader input, int inputIndex,
 			final InputGateReporterManager inputGateReporter) {
 
 		InputGateQosReportingListener listener = new InputGateQosReportingListener() {
@@ -119,11 +119,11 @@ public class QosReportingListenerHelper {
 			}
 		};
 
-		InputGateQosReportingListener oldListener = input.getQosCallback();
+		InputGateQosReportingListener oldListener = input.getQosCallback(inputIndex);
 		if (oldListener != null) {
-			input.setQosCallback(createChainedListener(listener, oldListener));
+			input.setQosCallback(createChainedListener(listener, oldListener), inputIndex);
 		} else {
-			input.setQosCallback(listener);
+			input.setQosCallback(listener, inputIndex);
 		}
 	}
 
