@@ -193,7 +193,7 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 					vertex.getID(),
 					element.getInputGateIndex(), vertex.getInputs().get(element.getInputGateIndex()).getSourceId(),
 					element.getOutputGateIndex(), vertex.getProducedDataSets().get(element.getOutputGateIndex()).getId(),
-					element.getSamplingStrategy(), element.getName());
+					element.getSamplingStrategy(), vertex.getName());
 
 		} else if (element.getInputGateIndex() >= 0) {
 			return dummyInputConfig(vertex, element);
@@ -208,7 +208,7 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 				vertex.getID(),
 				element.getInputGateIndex(), vertex.getInputs().get(element.getInputGateIndex()).getSourceId(),
 				-1, null,
-				element.getSamplingStrategy(), element.getName());
+				element.getSamplingStrategy(), vertex.getName());
 	}
 
 	public static VertexQosReporterConfig dummyOutputConfig(AbstractJobVertex vertex, SequenceElement element) {
@@ -216,6 +216,6 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 				vertex.getID(),
 				-1, null,
 				element.getOutputGateIndex(), vertex.getProducedDataSets().get(element.getOutputGateIndex()).getId(),
-				element.getSamplingStrategy(), element.getName());
+				element.getSamplingStrategy(), vertex.getName());
 	}
 }
