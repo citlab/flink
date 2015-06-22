@@ -184,9 +184,10 @@ public class VertexStatisticsReportManager {
 		
 		// search for ReadReadVertexQosReporterGroup
 		ReadReadVertexQosReporterGroup groupReporter = null;
-		for (VertexQosReporter vertexQosReporter : reportersByInputGate
-				.get(runtimeInputGateIndex)) {
-			if (vertexQosReporter instanceof ReadReadVertexQosReporterGroup) {
+		for (VertexQosReporter vertexQosReporter : reportersByInputGate.get(runtimeInputGateIndex)) {
+			if (vertexQosReporter instanceof ReadReadVertexQosReporterGroup
+					&& vertexQosReporter.getRuntimeInputGateIndex() == runtimeInputGateIndex) {
+
 				groupReporter = (ReadReadVertexQosReporterGroup) vertexQosReporter;
 				break;
 			}
