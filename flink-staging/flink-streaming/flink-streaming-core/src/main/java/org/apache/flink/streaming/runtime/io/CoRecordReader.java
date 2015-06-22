@@ -132,6 +132,11 @@ public class CoRecordReader<T1 extends IOReadableWritable, T2 extends IOReadable
 			}
 
 			if (currentReaderIndex == 1) {
+
+				if (qosCallback1 != null) {
+					qosCallback1.tryingToReadRecord();
+				}
+
 				while (true) {
 					if (reader1currentRecordDeserializer != null) {
 						RecordDeserializer.DeserializationResult result = reader1currentRecordDeserializer
@@ -184,6 +189,11 @@ public class CoRecordReader<T1 extends IOReadableWritable, T2 extends IOReadable
 					}
 				}
 			} else if (currentReaderIndex == 2) {
+
+				if (qosCallback2 != null) {
+					qosCallback2.tryingToReadRecord();
+				}
+
 				while (true) {
 					if (reader2currentRecordDeserializer != null) {
 						RecordDeserializer.DeserializationResult result = reader2currentRecordDeserializer
