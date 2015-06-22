@@ -35,6 +35,8 @@ import java.util.HashMap;
  */
 public class QosReport extends AbstractSerializableQosMessage {
 
+	private long timestamp;
+
 	private HashMap<QosReporterID.Edge, EdgeLatency> edgeLatencies;
 
 	private HashMap<QosReporterID.Edge, EdgeStatistics> edgeStatistics;
@@ -130,5 +132,13 @@ public class QosReport extends AbstractSerializableQosMessage {
 		return this.edgeLatencies == null
 				&& this.edgeStatistics == null
 				&& this.vertexStatistics == null;
+	}
+
+	public long getTimestamp() {
+		return timestamp;
+	}
+
+	public void setTimestamp() {
+		this.timestamp = System.currentTimeMillis();
 	}
 }

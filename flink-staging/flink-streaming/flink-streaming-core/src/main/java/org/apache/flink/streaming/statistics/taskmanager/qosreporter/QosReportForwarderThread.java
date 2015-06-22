@@ -131,10 +131,11 @@ public class QosReportForwarderThread extends Thread {
 	/**
 	 * Sends given report via first registered task environment to central statistics manager.
 	 */
-	private void sendReport(CustomStatistic report) {
+	private void sendReport(QosReport report) {
 		Iterator<StreamTask> streamTasks = this.registeredTasksInstances.values().iterator();
 
 		if (streamTasks.hasNext()) {
+			report.setTimestamp();
 			streamTasks.next().getEnvironment().reportCustomStatistic(report);
 		} else {
 			LOG.warn("No tasks registered. Can't send report. Dropping current report.");

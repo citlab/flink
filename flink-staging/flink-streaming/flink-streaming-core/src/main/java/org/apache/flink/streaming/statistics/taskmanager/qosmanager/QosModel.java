@@ -213,7 +213,7 @@ public class QosModel {
 //	}
 
 	private void processQosRecords(QosReport report) {
-		long now = System.currentTimeMillis();
+		long now = report.getTimestamp();
 		this.processVertexStatistics(report.getVertexStatistics(), now);
 		this.processEdgeStatistics(report.getEdgeStatistics(), now);
 		this.processEdgeLatencies(report.getEdgeLatencies(), now);
