@@ -87,12 +87,20 @@ public class QosStatistic {
 	}
 
 	private QosValue insertIntoSortedByTimestamp(QosValue value) {
-		if (!this.sortedByTs.isEmpty()
-				&& this.sortedByTs.getLast().getTimestamp() >= value
-						.getTimestamp()) {
-			throw new IllegalArgumentException(
-					"Trying to add stale Qos statistic values. This should not happen.");
+		if (!this.sortedByTs.isEmpty()) {
+			long lastTimestamp = this.sortedByTs.getLast().getTimestamp();
+
+			if (lastTimestamp == value.getTimestamp()) {
+				// Skip this (already added) entry. This might happen on vertices with
+				// more than one input/output gate reporter combination.
+				return null;
+
+			} else if (lastTimestamp > value.getTimestamp()) {
+				throw new IllegalArgumentException(
+						"Trying to add stale Qos statistic values. This should not happen.");
+			}
 		}
+
 		this.sortedByTs.add(value);
 
 		if (this.noOfStoredValues >= this.statisticWindowSize) {
