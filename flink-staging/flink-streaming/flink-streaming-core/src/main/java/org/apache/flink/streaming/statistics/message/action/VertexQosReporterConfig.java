@@ -178,9 +178,9 @@ public class VertexQosReporterConfig implements QosReporterConfig {
 			VertexQosReporterConfig other = (VertexQosReporterConfig) obj;
 			return this.groupVertexID.equals(other.groupVertexID)
 					&& this.inputGateIndex == other.inputGateIndex
-					&& this.inputDataSetID.equals(other.inputDataSetID)
+					&& (this.inputGateIndex == -1 || this.inputDataSetID.equals(other.inputDataSetID))
 					&& this.outputGateIndex == other.outputGateIndex
-					&& this.outputDataSetID.equals(other.outputDataSetID);
+					&& (this.outputGateIndex == -1 || this.outputDataSetID.equals(other.outputDataSetID));
 
 		} else {
 			return false;
