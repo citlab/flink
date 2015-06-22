@@ -98,9 +98,9 @@ public class StreamTaskQosCoordinator {
 
 		for (QosReporterConfig config : taskConfig.getQosReporterConfigs()) {
 			if (config instanceof VertexQosReporterConfig) {
-				installVertexStatisticsReporters((VertexQosReporterConfig) config);
+				prepareVertexStatisticsReporters((VertexQosReporterConfig) config);
 			} else {
-				installEdgeStatisticsReporters((EdgeQosReporterConfig) config);
+				prepareEdgeStatisticsReporters((EdgeQosReporterConfig) config);
 			}
 		}
 	}
@@ -190,7 +190,7 @@ public class StreamTaskQosCoordinator {
 	}
 
 
-	private void installVertexStatisticsReporters(VertexQosReporterConfig config) {
+	private void prepareVertexStatisticsReporters(VertexQosReporterConfig config) {
 		QosReporterID.Vertex reporterID = QosReporterID.forVertex(this.task, config);
 
 		LOG.debug("Installing vertex qos reporter {}: {}", reporterID, config);
@@ -207,7 +207,7 @@ public class StreamTaskQosCoordinator {
 		vertexStatisticsManager.addReporter(inputGateIndex, outputGateIndex, reporterID, config.getSamplingStrategy());
 	}
 
-	private void installEdgeStatisticsReporters(EdgeQosReporterConfig config) {
+	private void prepareEdgeStatisticsReporters(EdgeQosReporterConfig config) {
 		IntermediateDataSetID dataSetID = config.getIntermediateDataSetID();
 		boolean installed = false;
 
