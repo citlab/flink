@@ -65,19 +65,18 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 
 	public void setTimeout(long timeout) {
 		this.timeout = timeout;
+		this.flushAlways = timeout == 0;
 
 		if (timeout > 0 && this.outputFlusher == null) {
-			this.flushAlways = false;
 			this.outputFlusher = new OutputFlusher();
 			this.outputFlusher.start();
 
 		} else if (timeout == 0 && this.outputFlusher != null) {
-			this.flushAlways = true;
 			this.outputFlusher.terminate();
 			this.outputFlusher = null;
 		}
 
-		LOG.debug("Auto flush timeout changed to: {}.", this.timeout);
+		LOG.debug("Auto flush timeout changed to: {} (flush always: {}).", this.timeout, this.flushAlways);
 	}
 
 	@Override
@@ -172,6 +171,8 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 
 		@Override
 		public void run() {
+			LOG.debug("OutputFlusher started.");
+
 			while (running) {
 				try {
 					flush();
@@ -182,6 +183,8 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 					throw new RuntimeException(e);
 				}
 			}
+
+			LOG.debug("OutputFlusher terminated.");
 		}
 	}
 }
