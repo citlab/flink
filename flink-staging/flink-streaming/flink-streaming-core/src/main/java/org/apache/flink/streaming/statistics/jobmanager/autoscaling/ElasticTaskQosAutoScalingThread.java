@@ -257,5 +257,8 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 
 	public void shutdown() {
 		this.interrupt();
+		try {
+			this.join();
+		} catch(InterruptedException e) {}
 	}
 }

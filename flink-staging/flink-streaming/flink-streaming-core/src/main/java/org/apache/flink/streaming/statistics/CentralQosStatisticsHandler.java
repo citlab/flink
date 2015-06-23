@@ -56,12 +56,12 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 
 		// TODO: merge auto scaling with manager thread (see QosSetupManager)
 
-		LOG.warn("New QoS statistics controller initialized!");
+		LOG.info("New QoS statistics handler launched!");
 	}
 
 	@Override
 	public void handleStatistic(CustomStatistic statistic) {
-		LOG.info("Got some statistics: {}", statistic.getClass().getSimpleName());
+		LOG.debug("Statistics received: {}", statistic.getClass().getSimpleName());
 
 		if (statistic instanceof QosReport) {
 			this.qosManagerThread.enqueueMessage((QosReport) statistic);
@@ -73,7 +73,7 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 
 	@Override
 	public void handleExecutionStateChanged(ExecutionStateChanged executionStatus) {
-		LOG.warn("Got execution state change: {}", executionStatus);
+		LOG.debug("Execution state change received: {}", executionStatus);
 		Execution execution = executionGraph.getRegisteredExecutions().get(executionStatus.executionID());
 
 		if (execution != null) {
@@ -85,11 +85,14 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 
 	@Override
 	public void handleJobStatusChanged(JobStatusChanged jobStatus) {
-		LOG.warn("Got new job status: {}", jobStatus);
+		LOG.debug("Job status change received: {}", jobStatus);
 	}
 
 	@Override
 	public void close() {
-		LOG.warn("Central qos handler closed!");
+		LOG.debug("Going to close central QoS statistics handler.");
+		this.qosManagerThread.shutdown();
+		this.autoScalingThread.shutdown();
+		LOG.info("Central Qos statistics handler closed!");
 	}
 }

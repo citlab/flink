@@ -208,6 +208,9 @@ public class QosManagerThread extends Thread {
 
 	public void shutdown() {
 		this.interrupt();
+		try {
+			this.join();
+		} catch(InterruptedException e) {}
 	}
 
 	public void enqueueMessage(QosReport report) {
