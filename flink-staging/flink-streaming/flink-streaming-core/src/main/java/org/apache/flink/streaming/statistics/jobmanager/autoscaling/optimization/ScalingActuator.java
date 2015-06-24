@@ -78,7 +78,7 @@ public class ScalingActuator {
 		this.vertexTopologicalScores = vertexTopologicalScores;
 		this.cooldownLatch = new CountDownLatch(8);
 
-		fillCurrentAndTargetParallelism(execGraph);
+		fillCurrentParallelism(execGraph);
 
 		scalingExecutorFuture = this.executor.submit(new Runnable() {
 			@Override
@@ -98,18 +98,17 @@ public class ScalingActuator {
 		});
 	}
 
-	private void fillCurrentAndTargetParallelism(ExecutionGraph execGraph) {
+	private void fillCurrentParallelism(ExecutionGraph execGraph) {
 		for (ExecutionJobVertex groupVertex : execGraph.getAllVertices().values()) {
 			int currParallelism;
 
 			if (groupVertex.hasElasticNumberOfRunningSubtasks()) {
 				currParallelism = groupVertex.getInitialElasticNumberOfRunningSubtasks();
 			} else {
-				currParallelism = groupVertex.getCurrentElasticNumberOfRunningSubtasks();
+				currParallelism = groupVertex.getParallelism();
 			}
 
 			currentParallelism.put(groupVertex.getJobVertexId(), currParallelism);
-			targetParallelism.put(groupVertex.getJobVertexId(), currParallelism);
 		}
 	}
 
