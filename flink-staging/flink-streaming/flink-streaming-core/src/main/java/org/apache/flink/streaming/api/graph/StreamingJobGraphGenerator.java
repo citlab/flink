@@ -475,17 +475,21 @@ public class StreamingJobGraphGenerator {
 	}
 
 	private List<JobGraphSequence> calculateSequences(ConstraintBoundary beginEdge, ConstraintBoundary endEdge) {
-		AbstractJobVertex beginVertex = jobVertices.get(beginEdge.getSourceId());
-		AbstractJobVertex endVertex = jobVertices.get(endEdge.getSourceId());
+		AbstractJobVertex beginSourceVertex = jobVertices.get(beginEdge.getSourceId());
+		AbstractJobVertex beginTargetVertex = jobVertices.get(beginEdge.getTargetId());
+		AbstractJobVertex endSourceVertex = jobVertices.get(endEdge.getSourceId());
+		AbstractJobVertex endTargetVertex = jobVertices.get(endEdge.getTargetId());
 
-		if (beginVertex == null || endVertex == null) {
+		if (beginSourceVertex == null || endSourceVertex == null) {
 			throw new IllegalStateException("Chaining over latency constraint boundaries detected. " +
 					"Please disable chaining over the constraint boundaries.");
 		}
 
-		JobGraphSequenceFinder jobGraphSequenceFinder = new JobGraphSequenceFinder(jobGraph);
+		JobGraphSequenceFinder jobGraphSequenceFinder = new JobGraphSequenceFinder();
 
-		return jobGraphSequenceFinder.findAllSequencesBetween(beginVertex, endVertex);
+		return jobGraphSequenceFinder.findAllSequencesBetween(
+				beginSourceVertex, beginTargetVertex, !beginSourceVertex.isInputVertex(),
+				endSourceVertex, endTargetVertex, !endTargetVertex.isOutputVertex());
 	}
 
 
