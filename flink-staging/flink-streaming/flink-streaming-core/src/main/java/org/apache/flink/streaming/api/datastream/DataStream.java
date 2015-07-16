@@ -66,6 +66,7 @@ import org.apache.flink.streaming.api.functions.sink.PrintSinkFunction;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.sink.SocketClientSink;
 import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.streaming.api.graph.StreamNode;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.StreamCounter;
 import org.apache.flink.streaming.api.operators.StreamFilter;
@@ -87,6 +88,7 @@ import org.apache.flink.streaming.runtime.partitioner.FieldsPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.GlobalPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.ShufflePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
+import org.apache.flink.streaming.statistics.SamplingStrategy;
 import org.apache.flink.streaming.util.keys.KeySelectorUtil;
 import org.apache.flink.streaming.util.serialization.SerializationSchema;
 
@@ -1496,6 +1498,17 @@ public class DataStream<OUT> {
 	 */
 	public DataStream<OUT> finishLatencyConstraint() {
 		streamGraph.finishLatencyConstraint(getId());
+		return this;
+	}
+
+	/**
+	 * The sampling strategy to use when the task is part of a constraint.
+	 *
+	 * @param strategy the sampling strategy.
+	 */
+	public DataStream<OUT> setSamplingStrategy(SamplingStrategy strategy) {
+		StreamNode streamNode = streamGraph.getStreamNode(id);
+		streamNode.setSamplingStrategy(strategy);
 		return this;
 	}
 }

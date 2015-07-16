@@ -38,6 +38,9 @@ import org.apache.flink.streaming.api.windowing.helper.Count;
 import org.apache.flink.streaming.runtime.partitioner.FieldsPartitioner;
 import org.apache.flink.streaming.statistics.ConstraintUtil;
 import org.apache.flink.streaming.statistics.JobGraphLatencyConstraint;
+import org.apache.flink.streaming.statistics.JobGraphSequence;
+import org.apache.flink.streaming.statistics.SamplingStrategy;
+import org.apache.flink.streaming.statistics.SequenceElement;
 import org.apache.flink.streaming.util.TestStreamEnvironment;
 import org.apache.flink.test.testdata.WordCountData;
 import org.apache.flink.util.Collector;
@@ -236,41 +239,37 @@ public class DataStreamTest {
 	 * sequences.
 	 *
 	 * Used test graph:
-	 *                       -> mapB1 -> mapB2 ->
-	 * source -> afterSource -> mapA -----------> coFlatMap -> sink
-	 *        ^                                             ^
-	 *    constraint                                    constraint
-	 *      begin                                          end
+	 *
+	 *        -> mapB1 -> mapB2 ->
+	 * source -> mapA -----------> coFlatMap -> sink
+	 *        ^                  ^
+	 *    constraint 1+2     constraint 1+2
+	 *      begin               end
 	 */
 	@Test
 	public void testConstraint() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		DataStreamSource<String> source = env.fromElements(WordCountData.STREAMING_COUNTS_AS_TUPLES);
 
-		DataStream<String> afterSource = source
+		DataStream<String> mapA = source
 				.beginLatencyConstraint(100, true)
-				.map(new MapFunction<String, String>() {
-					@Override
-					public String map(String value) throws Exception {
-						return "afterSource";
-					}
-				});
-
-		DataStream<String> mapA = afterSource
 				.map(new MapFunction<String, String>() {
 					@Override
 					public String map(String value) throws Exception {
 						return "mapA";
 					}
-				});
+				})
+				.finishLatencyConstraint();
 
-		DataStream<String> mapB1 = afterSource
+		DataStream<String> mapB1 = source
+				.beginLatencyConstraint(100, true)
 				.map(new MapFunction<String, String>() {
 					@Override
 					public String map(String value) throws Exception {
 						return "mapB1";
 					}
-				});
+				})
+				.setSamplingStrategy(SamplingStrategy.READ_WRITE);
 
 		DataStream<String> mapB2 = mapB1
 				.map(new MapFunction<String, String>() {
@@ -278,7 +277,8 @@ public class DataStreamTest {
 					public String map(String value) throws Exception {
 						return "mapB2";
 					}
-				});
+				})
+				.finishLatencyConstraint();
 
 		SingleOutputStreamOperator<String, ?> coFlatMap = mapA
 				.connect(mapB2)
@@ -295,7 +295,6 @@ public class DataStreamTest {
 				});
 
 		coFlatMap
-				.finishLatencyConstraint()
 				.addSink(new SinkFunction<String>() {
 					@Override
 					public void invoke(String value) throws Exception {

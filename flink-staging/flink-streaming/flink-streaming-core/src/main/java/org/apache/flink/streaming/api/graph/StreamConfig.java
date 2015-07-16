@@ -31,6 +31,7 @@ import org.apache.flink.streaming.api.collector.selector.OutputSelectorWrapper;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecordSerializer;
 import org.apache.flink.streaming.runtime.tasks.StreamTaskException;
+import org.apache.flink.streaming.statistics.SamplingStrategy;
 import org.apache.flink.streaming.statistics.message.action.QosReporterConfig;
 import org.apache.flink.util.InstantiationUtil;
 
@@ -62,6 +63,7 @@ public class StreamConfig implements Serializable {
 	private static final String IN_STREAM_EDGES = "inStreamEdges";
 	private static final String STATEHANDLE_PROVIDER = "stateHandleProvider";
 
+	private static final String SAMPLING_STRATEGY = "samplingStrategy";
 	private static final String QOS_REPORTER_CONFIGS = "qosReporterConfigs";
 
 	// DEFAULT VALUES
@@ -411,6 +413,20 @@ public class StreamConfig implements Serializable {
 		return config.getBoolean(IS_CHAINED_VERTEX, false);
 	}
 
+	public void setSamplingStrategy(SamplingStrategy samplingStrategy) {
+		config.setString(SAMPLING_STRATEGY, samplingStrategy.toString());
+	}
+
+	public SamplingStrategy getSamplingStrategy() {
+		String samplingStrategyString = config.getString(SAMPLING_STRATEGY, SamplingStrategy.READ_READ.toString());
+		SamplingStrategy samplingStrategy;
+		try {
+			samplingStrategy	= SamplingStrategy.valueOf(samplingStrategyString);
+		} catch (IllegalArgumentException e) {
+			samplingStrategy = SamplingStrategy.READ_READ;
+		}
+		return samplingStrategy;
+	}
 
 	public boolean hasQosReporterConfigs() {
 		return config.containsKey(QOS_REPORTER_CONFIGS);
