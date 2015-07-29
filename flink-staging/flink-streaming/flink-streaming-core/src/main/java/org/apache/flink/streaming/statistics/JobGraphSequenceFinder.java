@@ -22,6 +22,7 @@ package org.apache.flink.streaming.statistics;
 import org.apache.flink.runtime.jobgraph.AbstractJobVertex;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSet;
 import org.apache.flink.runtime.jobgraph.JobEdge;
+import org.apache.flink.streaming.api.graph.StreamConfig;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -98,7 +99,9 @@ public class JobGraphSequenceFinder {
 				AbstractJobVertex newTargetVertex = dataSets.get(i).getConsumers().get(0).getTarget();
 				int newTargetInputGate = getInputGateIndex(dataSets.get(i), newTargetVertex);
 
-				stack.addVertex(targetVertex.getID(), targetVertex.getName(), targetInputGate, i);
+				StreamConfig streamConfig = new StreamConfig(targetVertex.getConfiguration());
+				stack.addVertex(targetVertex.getID(), targetVertex.getName(), targetInputGate, i,
+						streamConfig.getSamplingStrategy());
 
 				depthFirstSequenceEnumerate(
 						targetVertex, i,

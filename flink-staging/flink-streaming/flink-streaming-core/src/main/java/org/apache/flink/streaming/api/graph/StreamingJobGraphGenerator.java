@@ -296,6 +296,8 @@ public class StreamingJobGraphGenerator {
 
 		StreamNode vertex = streamGraph.getStreamNode(vertexID);
 
+		config.setSamplingStrategy(vertex.getSamplingStrategy());
+
 		config.setVertexID(vertexID);
 		config.setBufferTimeout(vertex.getBufferTimeout());
 
