@@ -236,35 +236,30 @@ public class DataStreamTest {
 	 * sequences.
 	 *
 	 * Used test graph:
-	 *                       -> mapB1 -> mapB2 ->
-	 * source -> afterSource -> mapA -----------> coFlatMap -> sink
-	 *        ^                                             ^
-	 *    constraint                                    constraint
-	 *      begin                                          end
+	 *
+	 *        -> mapB1 -> mapB2 ->
+	 * source -> mapA -----------> coFlatMap -> sink
+	 *        ^                  ^
+	 *    constraint 1+2     constraint 1+2
+	 *      begin               end
 	 */
 	@Test
 	public void testConstraint() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		DataStreamSource<String> source = env.fromElements(WordCountData.STREAMING_COUNTS_AS_TUPLES);
 
-		DataStream<String> afterSource = source
+		DataStream<String> mapA = source
 				.beginLatencyConstraint(100, true)
-				.map(new MapFunction<String, String>() {
-					@Override
-					public String map(String value) throws Exception {
-						return "afterSource";
-					}
-				});
-
-		DataStream<String> mapA = afterSource
 				.map(new MapFunction<String, String>() {
 					@Override
 					public String map(String value) throws Exception {
 						return "mapA";
 					}
-				});
+				})
+				.finishLatencyConstraint();
 
-		DataStream<String> mapB1 = afterSource
+		DataStream<String> mapB1 = source
+				.beginLatencyConstraint(100, true)
 				.map(new MapFunction<String, String>() {
 					@Override
 					public String map(String value) throws Exception {
@@ -278,7 +273,8 @@ public class DataStreamTest {
 					public String map(String value) throws Exception {
 						return "mapB2";
 					}
-				});
+				})
+				.finishLatencyConstraint();
 
 		SingleOutputStreamOperator<String, ?> coFlatMap = mapA
 				.connect(mapB2)
@@ -295,7 +291,6 @@ public class DataStreamTest {
 				});
 
 		coFlatMap
-				.finishLatencyConstraint()
 				.addSink(new SinkFunction<String>() {
 					@Override
 					public void invoke(String value) throws Exception {
