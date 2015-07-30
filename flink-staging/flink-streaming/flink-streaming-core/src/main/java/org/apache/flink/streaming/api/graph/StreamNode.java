@@ -29,6 +29,7 @@ import org.apache.flink.streaming.api.collector.selector.OutputSelectorWrapperFa
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecordSerializer;
+import org.apache.flink.streaming.statistics.SamplingStrategy;
 
 /**
  * Class representing the operators in the streaming programs, with all their
@@ -65,6 +66,8 @@ public class StreamNode implements Serializable {
 
 	private InputFormat<?, ?> inputFormat;
 
+	private SamplingStrategy samplingStrategy;
+
 	public StreamNode(StreamExecutionEnvironment env, Integer ID, StreamOperator<?> operator,
 			String operatorName, List<OutputSelector<?>> outputSelector,
 			Class<? extends AbstractInvokable> jobVertexClass) {
@@ -75,6 +78,8 @@ public class StreamNode implements Serializable {
 		this.outputSelectors = outputSelector;
 		this.jobVertexClass = jobVertexClass;
 		this.slotSharingID = currentSlotSharingIndex;
+
+		this.samplingStrategy = SamplingStrategy.READ_READ;
 	}
 
 	public void addInEdge(StreamEdge inEdge) {
@@ -253,7 +258,15 @@ public class StreamNode implements Serializable {
 	public void isolateSlot() {
 		isolatedSlot = true;
 	}
-	
+
+	public SamplingStrategy getSamplingStrategy() {
+		return samplingStrategy;
+	}
+
+	public void setSamplingStrategy(SamplingStrategy samplingStrategy) {
+		this.samplingStrategy = samplingStrategy;
+	}
+
 	@Override
 	public String toString() {
 		return operatorName + ID;

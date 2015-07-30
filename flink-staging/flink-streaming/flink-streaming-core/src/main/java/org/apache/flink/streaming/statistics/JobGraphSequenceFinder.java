@@ -19,64 +19,61 @@
 
 package org.apache.flink.streaming.statistics;
 
-import java.util.LinkedList;
-import java.util.List;
-
 import org.apache.flink.runtime.jobgraph.AbstractJobVertex;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSet;
 import org.apache.flink.runtime.jobgraph.JobEdge;
-import org.apache.flink.runtime.jobgraph.JobGraph;
-import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.streaming.api.graph.StreamConfig;
+
+import java.util.LinkedList;
+import java.util.List;
 
 public class JobGraphSequenceFinder {
-	private JobGraph jobGraph;
-
-	public JobGraphSequenceFinder(JobGraph jobGraph) {
-		this.jobGraph = jobGraph;
-	}
 
 	/**
-	 * Return a list of all possible {@link JobGraphSequence}s between two job vertices.
+	 * Return a list of all possible {@link JobGraphSequence}s between two job graph edges.
 	 *
-	 * @param beginId
-	 * 		the id of the begin vertex.
-	 * @param endId
-	 * 		the id of the end vertex.
+	 * @param beginSourceVertex
+	 * 		the source vertex of the begin edge.
+	 * @param beginTargetVertex
+	 * 		the target vertex of the begin edge.
+	 * @param includeBeginVertex
+	 * 		whether the beginSourceVertex should be included in the result sequences.
+	 * @param endSourceVertex
+	 * 		the source vertex of the end edge.
+	 * @param endTargetVertex
+	 * 		the target vertex of the end edge
+	 * @param includeEndVertex
+	 * 		whether the endTargetVertex should be included in the result sequences.
 	 * @return list of job graph sequences.
 	 */
-	public List<JobGraphSequence> findAllSequencesBetween(JobVertexID beginId, JobVertexID endId) {
-		AbstractJobVertex beginVertex = jobGraph.findVertexByID(beginId);
-		AbstractJobVertex endVertex = jobGraph.findVertexByID(endId);
+	public List<JobGraphSequence> findAllSequencesBetween(
+			AbstractJobVertex beginSourceVertex, AbstractJobVertex beginTargetVertex, boolean includeBeginVertex,
+			AbstractJobVertex endSourceVertex, AbstractJobVertex endTargetVertex, boolean includeEndVertex) {
 
-		return findAllSequencesBetween(beginVertex, endVertex);
-	}
-
-	/**
-	 * Return a list of all possible {@link JobGraphSequence}s between two job vertices.
-	 *
-	 * @param beginVertex
-	 * 		the begin vertex.
-	 * @param endVertex
-	 * 		the end vertex.
-	 * @return list of job graph sequences.
-	 */
-	public List<JobGraphSequence> findAllSequencesBetween(AbstractJobVertex beginVertex, AbstractJobVertex endVertex) {
-
-		IntermediateDataSet beginOutput = beginVertex.getProducedDataSets().get(0);
-		AbstractJobVertex beginTargetVertex = beginOutput.getConsumers().get(0).getTarget();
+		int beginSourceOutputGate = getOutputGateIndex(beginSourceVertex, beginTargetVertex);
+		IntermediateDataSet beginOutput = beginSourceVertex.getProducedDataSets().get(beginSourceOutputGate);
 		int beginTargetInputGate = getInputGateIndex(beginOutput, beginTargetVertex);
 
-		IntermediateDataSet endOutput = endVertex.getProducedDataSets().get(0);
-		AbstractJobVertex endTargetVertex = endOutput.getConsumers().get(0).getTarget();
-		int endInputGate = getInputGateIndex(endOutput, endTargetVertex);
+		int endSourceOutputGate = getOutputGateIndex(endSourceVertex, endTargetVertex);
+		IntermediateDataSet endOutput = endSourceVertex.getProducedDataSets().get(endSourceOutputGate);
+		int endTargetInputGate = getInputGateIndex(endOutput, endTargetVertex);
 
 		JobGraphSequence stack = new JobGraphSequence();
+		if (includeBeginVertex) {
+			stack.addVertex(beginSourceVertex.getID(), beginSourceVertex.getName(), -1, beginSourceOutputGate);
+		}
 		LinkedList<JobGraphSequence> result = new LinkedList<JobGraphSequence>();
 
 		depthFirstSequenceEnumerate(
-				beginVertex, 0,
+				beginSourceVertex, beginSourceOutputGate,
 				beginTargetVertex, beginTargetInputGate,
-				stack, result, endTargetVertex, endInputGate);
+				stack, result, endTargetVertex, endTargetInputGate);
+
+		if (includeEndVertex) {
+			for (JobGraphSequence sequence : result) {
+				sequence.addVertex(endTargetVertex.getID(), endTargetVertex.getName(), endTargetInputGate, -1);
+			}
+		}
 
 		return result;
 	}
@@ -102,7 +99,9 @@ public class JobGraphSequenceFinder {
 				AbstractJobVertex newTargetVertex = dataSets.get(i).getConsumers().get(0).getTarget();
 				int newTargetInputGate = getInputGateIndex(dataSets.get(i), newTargetVertex);
 
-				stack.addVertex(targetVertex.getID(), targetVertex.getName(), targetInputGate, i);
+				StreamConfig streamConfig = new StreamConfig(targetVertex.getConfiguration());
+				stack.addVertex(targetVertex.getID(), targetVertex.getName(), targetInputGate, i,
+						streamConfig.getSamplingStrategy());
 
 				depthFirstSequenceEnumerate(
 						targetVertex, i,
@@ -114,6 +113,21 @@ public class JobGraphSequenceFinder {
 		}
 
 		stack.removeLast();
+	}
+
+	private int getOutputGateIndex(AbstractJobVertex source, AbstractJobVertex target) {
+		List<IntermediateDataSet> producedDataSets = source.getProducedDataSets();
+		for (int i = 0; i < producedDataSets.size(); i++) {
+			for (JobEdge edge : producedDataSets.get(i).getConsumers()) {
+				if (edge.getTarget().equals(target)) {
+					return i;
+				}
+			}
+		}
+
+		throw new RuntimeException(String.format("AbstractJobVertex (%s) and AbstractJobVertex (%s) are not connected",
+				source.getID().toString(), target.getID().toString()
+		));
 	}
 
 	private int getInputGateIndex(IntermediateDataSet source, AbstractJobVertex target) {

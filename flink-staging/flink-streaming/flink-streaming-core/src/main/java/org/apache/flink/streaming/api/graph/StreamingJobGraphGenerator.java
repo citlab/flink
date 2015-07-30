@@ -296,6 +296,8 @@ public class StreamingJobGraphGenerator {
 
 		StreamNode vertex = streamGraph.getStreamNode(vertexID);
 
+		config.setSamplingStrategy(vertex.getSamplingStrategy());
+
 		config.setVertexID(vertexID);
 		config.setBufferTimeout(vertex.getBufferTimeout());
 
@@ -471,21 +473,67 @@ public class StreamingJobGraphGenerator {
 			constraints.put(entry.getKey(), constraintGroup);
 		}
 
+		validateOverlapping(constraints);
+
 		setLatencyConstraints(constraints);
 	}
 
-	private List<JobGraphSequence> calculateSequences(ConstraintBoundary beginEdge, ConstraintBoundary endEdge) {
-		AbstractJobVertex beginVertex = jobVertices.get(beginEdge.getSourceId());
-		AbstractJobVertex endVertex = jobVertices.get(endEdge.getSourceId());
+	private void validateOverlapping(Map<ConstraintGroupIdentifier, JobGraphConstraintGroup> constraints) {
+		List<JobGraphSequence> sequences = new ArrayList<JobGraphSequence>();
+		for (JobGraphConstraintGroup constraintGroup : constraints.values()) {
+			sequences.addAll(constraintGroup.getSequences());
+		}
 
-		if (beginVertex == null || endVertex == null) {
+		int n = sequences.size();
+
+		// pairwise comparison
+		for (int i = 0; i < n; i++) {
+			for (int j = i + 1; j < n; j++) {
+				JobGraphSequence sequence1 = sequences.get(i);
+				JobGraphSequence sequence2 = sequences.get(j);
+				validateOverlapping(sequence1, sequence2);
+			}
+		}
+	}
+
+	private void validateOverlapping(JobGraphSequence sequence1, JobGraphSequence sequence2) {
+		JobVertexID[] vertices1 =
+				sequence1.getVerticesInSequence().toArray(new JobVertexID[sequence1.getNumberOfVertices()]);
+		JobVertexID[] vertices2 =
+				sequence2.getVerticesInSequence().toArray(new JobVertexID[sequence2.getNumberOfVertices()]);
+
+		for (int i = 1; i < vertices1.length; i++) {
+			for (int j = 1; j < vertices2.length; j++) {
+
+				JobVertexID sourceVertex1 = vertices1[i-1];
+				JobVertexID targetVertex1 = vertices1[i];
+
+				JobVertexID sourceVertex2 = vertices2[i-1];
+				JobVertexID targetVertex2 = vertices2[i];
+
+				if (sourceVertex1.equals(sourceVertex2) && targetVertex1.equals(targetVertex2)) {
+					throw new RuntimeException("Overlapping latency constraints detected.");
+				}
+			}
+		}
+	}
+
+	private List<JobGraphSequence> calculateSequences(ConstraintBoundary beginEdge, ConstraintBoundary endEdge) {
+		AbstractJobVertex beginSourceVertex = jobVertices.get(beginEdge.getSourceId());
+		AbstractJobVertex beginTargetVertex = jobVertices.get(beginEdge.getTargetId());
+		AbstractJobVertex endSourceVertex = jobVertices.get(endEdge.getSourceId());
+		AbstractJobVertex endTargetVertex = jobVertices.get(endEdge.getTargetId());
+
+		if (beginSourceVertex == null || endSourceVertex == null) {
 			throw new IllegalStateException("Chaining over latency constraint boundaries detected. " +
 					"Please disable chaining over the constraint boundaries.");
 		}
 
-		JobGraphSequenceFinder jobGraphSequenceFinder = new JobGraphSequenceFinder(jobGraph);
+		JobGraphSequenceFinder jobGraphSequenceFinder = new JobGraphSequenceFinder();
 
-		return jobGraphSequenceFinder.findAllSequencesBetween(beginVertex, endVertex);
+		return jobGraphSequenceFinder.findAllSequencesBetween(
+				beginSourceVertex, beginTargetVertex, !beginSourceVertex.isInputVertex(),
+				endSourceVertex, endTargetVertex, !endTargetVertex.isOutputVertex());
 	}
 
 
