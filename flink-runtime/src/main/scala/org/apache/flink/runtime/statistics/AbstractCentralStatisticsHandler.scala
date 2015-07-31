@@ -17,11 +17,11 @@
  */
 package org.apache.flink.runtime.statistics
 
+import javax.servlet.http.HttpServletRequest
+
 import org.apache.flink.api.common.JobID
 import org.apache.flink.runtime.executiongraph.ExecutionGraph
 import org.apache.flink.runtime.messages.ExecutionGraphMessages.{ExecutionStateChanged, JobStatusChanged}
-
-import scala.concurrent.duration.FiniteDuration
 
 abstract class AbstractCentralStatisticsHandler extends Serializable {
   def open(jobID: JobID, executionGraph: ExecutionGraph) {}
@@ -29,4 +29,11 @@ abstract class AbstractCentralStatisticsHandler extends Serializable {
   def handleExecutionStateChanged(executionStatus: ExecutionStateChanged) {}
   def handleJobStatusChanged(jobStatus: JobStatusChanged) {}
   def close {}
+
+  // web frontend
+  def hasWebFrontend: java.lang.Boolean = { false }
+  def webFrontendName: java.lang.String = { "" }
+  def webFrontendFile: java.lang.String = { "" }
+  def webFrontendHandler(req: HttpServletRequest): java.lang.String = { "" }
+  def webFrontendArchive: java.lang.String = { "" }
 }

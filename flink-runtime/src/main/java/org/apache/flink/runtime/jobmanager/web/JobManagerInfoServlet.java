@@ -51,6 +51,7 @@ import org.apache.flink.runtime.messages.accumulators.AccumulatorResultStringsFo
 import org.apache.flink.runtime.messages.accumulators.AccumulatorResultsErroneous;
 import org.apache.flink.runtime.messages.accumulators.AccumulatorResultsNotFound;
 import org.apache.flink.runtime.messages.accumulators.RequestAccumulatorResultsStringified;
+import org.apache.flink.runtime.statistics.RequestFrontendJSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.flink.runtime.execution.ExecutionState;
@@ -212,6 +213,19 @@ public class JobManagerInfoServlet extends HttpServlet {
 			} else if ("version".equals(req.getParameter("get"))) {
 				writeJsonForVersion(resp.getWriter());
 			}
+			else if ("customStatistics".equals(req.getParameter("get"))) {
+				JobID jobID = JobID.fromHexString(req.getParameter("job"));
+				response = Patterns.ask(jobmanager, new RequestFrontendJSON(jobID, req),
+						new Timeout(timeout));
+
+				result = Await.result(response, timeout);
+
+				if (!(result instanceof String)) {
+					throw new RuntimeException("No custom statistics available.");
+				} else {
+					resp.getWriter().write((String) result);
+				}
+			}
 			else{
 				response = Patterns.ask(jobmanager, JobManagerMessages.getRequestRunningJobs(),
 						new Timeout(timeout));
@@ -277,6 +291,10 @@ public class JobManagerInfoServlet extends HttpServlet {
 		wrt.write("\"status\": \""+ graph.getState() + "\",");
 		wrt.write("\"time\": " + graph.getStatusTimestamp(graph.getState())+",");
 
+		if (graph.hasCustomStatisticsWebFrontend()) {
+			wrt.write("\"customStatistics\": " + graph.customStatisticsWebFrontendConfigJson() + ",");
+		}
+
 		// Serialize ManagementGraph to json
 		wrt.write("\"groupvertices\": [");
 		boolean first = true;
@@ -328,6 +346,10 @@ public class JobManagerInfoServlet extends HttpServlet {
 			wrt.write("\"jobname\": \"" + graph.getJobName()+"\",");
 			wrt.write("\"status\": \""+ graph.getState() + "\",");
 			wrt.write("\"time\": " + graph.getStatusTimestamp(graph.getState()));
+
+			if (graph.hasCustomStatisticsWebFrontend()) {
+				wrt.write(", \"customStatistics\": " + graph.customStatisticsWebFrontendConfigJson());
+			}
 
 			wrt.write("}");
 
@@ -522,6 +544,14 @@ public class JobManagerInfoServlet extends HttpServlet {
 			}
 
 			wrt.write("}");
+
+			if (graph.hasCustomStatisticsWebFrontend()) {
+				wrt.write(", \"customStatistic\": {");
+				wrt.write("\"config\":" + graph.customStatisticsWebFrontendConfigJson() + ",");
+				wrt.write("\"data\":"+ graph.getCustomStatisticsFrontendArchiv());
+				wrt.write("}");
+			}
+
 			wrt.write("}");
 			wrt.write("]");
 		}

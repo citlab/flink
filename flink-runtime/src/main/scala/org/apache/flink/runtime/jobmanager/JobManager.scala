@@ -43,7 +43,7 @@ import org.apache.flink.runtime.messages.checkpoint.{AcknowledgeCheckpoint, Abst
 import org.apache.flink.runtime.process.ProcessReaper
 import org.apache.flink.runtime.security.SecurityUtils
 import org.apache.flink.runtime.security.SecurityUtils.FlinkSecuredRunner
-import org.apache.flink.runtime.statistics.StatisticReport
+import org.apache.flink.runtime.statistics.{RequestFrontendJSON, StatisticReport}
 import org.apache.flink.runtime.taskmanager.TaskManager
 import org.apache.flink.runtime.util.{SerializedValue, EnvironmentInformation}
 import org.apache.flink.runtime.{StreamingMode, ActorSynchronousLogging, ActorLogMessages}
@@ -439,9 +439,16 @@ class JobManager(protected val flinkConfiguration: Configuration,
 
     case msg: StatisticReport =>
       currentJobs.get(msg.jobID) match {
-        case Some((executionGraph,_)) =>
+        case Some((executionGraph, _)) =>
           executionGraph.forwardCustomStatistic(msg, context)
-        case None => // ignore uknown jobs
+        case None => // ignore unknown jobs
+      }
+
+    case msg: RequestFrontendJSON =>
+      currentJobs.get(msg.jobID) match {
+        case Some((executionGraph, _)) =>
+          executionGraph.forwardCustomStatisticsRequest(msg, context)
+        case None => // ignore unknown jobs
       }
   }
 

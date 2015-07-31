@@ -23,6 +23,8 @@ import akka.actor.ActorRef;
 
 import akka.actor.ActorSystem;
 import akka.actor.PoisonPill;
+import akka.pattern.Patterns;
+import akka.util.Timeout;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.JobException;
@@ -41,6 +43,8 @@ import org.apache.flink.runtime.jobmanager.scheduler.Scheduler;
 import org.apache.flink.runtime.messages.ExecutionGraphMessages;
 import org.apache.flink.runtime.statistics.CentralStatisticsActor;
 import org.apache.flink.runtime.statistics.AbstractCentralStatisticsHandler;
+import org.apache.flink.runtime.statistics.RequestFrontendArchivJSON;
+import org.apache.flink.runtime.statistics.RequestFrontendJSON;
 import org.apache.flink.runtime.statistics.StatisticReport;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.util.SerializableObject;
@@ -50,6 +54,8 @@ import org.apache.flink.util.InstantiationUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import scala.concurrent.Await;
+import scala.concurrent.Future;
 import scala.concurrent.duration.FiniteDuration;
 
 import java.io.Serializable;
@@ -212,6 +218,10 @@ public class ExecutionGraph implements Serializable {
 
 	private ActorRef statisticsActor;
 
+	private String customStatisticsFrontendName = null;
+	private String customStatisticsFrontendFile = null;
+	private String customStatisticsFrontendArchiv = null;
+
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
 	// --------------------------------------------------------------------------------------------
@@ -356,10 +366,18 @@ public class ExecutionGraph implements Serializable {
 
 		customStatisticsEnabled = true;
 		statisticsActor = CentralStatisticsActor.spawn(actorSystem, this, statisticsHandler);
+
+		if (statisticsHandler.hasWebFrontend()) {
+			customStatisticsFrontendName = statisticsHandler.webFrontendName();
+			customStatisticsFrontendFile = statisticsHandler.webFrontendFile();
+		}
 	}
 
 	public void disableCustomStatistics() {
 		this.customStatisticsEnabled = false;
+	}
+
+	public void stopCustomStatistics() {
 		if (this.statisticsActor != null) {
 			this.statisticsActor.tell(PoisonPill.getInstance(), ActorRef.noSender());
 			this.statisticsActor = null;
@@ -370,6 +388,25 @@ public class ExecutionGraph implements Serializable {
 		if (isCustomStatisticsEnabled()) {
 			this.statisticsActor.forward(report, context);
 		}
+	}
+
+	public boolean hasCustomStatisticsWebFrontend() {
+		return customStatisticsEnabled && customStatisticsFrontendName != null;
+	}
+
+	public String customStatisticsWebFrontendConfigJson() {
+		return "{ \"name\": \"" + customStatisticsFrontendName + "\", "
+				+ "\"file\": \"" + customStatisticsFrontendFile + "\" }";
+	}
+
+	public void forwardCustomStatisticsRequest(RequestFrontendJSON msg, ActorContext context) {
+		if (hasCustomStatisticsWebFrontend()) {
+			this.statisticsActor.forward(msg, context);
+		}
+	}
+
+	public String getCustomStatisticsFrontendArchiv() {
+		return this.customStatisticsFrontendArchiv;
 	}
 
 	private ExecutionVertex[] collectExecutionVertices(List<ExecutionJobVertex> jobVertices) {
@@ -679,6 +716,16 @@ public class ExecutionGraph implements Serializable {
 		requiredJarFiles.clear();
 		jobStatusListenerActors.clear();
 		executionListenerActors.clear();
+
+		if (isCustomStatisticsEnabled()) {
+			if (hasCustomStatisticsWebFrontend()) {
+				try {
+					Future<Object> result = Patterns.ask(this.statisticsActor, new RequestFrontendArchivJSON(), new Timeout(timeout));
+					this.customStatisticsFrontendArchiv = (String) Await.result(result, timeout);
+				} catch(Exception e) {}
+			}
+			stopCustomStatistics();
+		}
 	}
 
 	public ExecutionConfig getExecutionConfig() {

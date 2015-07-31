@@ -17,6 +17,8 @@
  */
 package org.apache.flink.runtime.statistics
 
+import javax.servlet.http.HttpServletRequest
+
 import akka.actor._
 import org.apache.flink.api.common.JobID
 import org.apache.flink.runtime.{ActorSynchronousLogging, ActorLogMessages}
@@ -47,11 +49,17 @@ class CentralStatisticsActor(val executionGraph: ExecutionGraph,
     case jobStatus@JobStatusChanged(_, newState, _, _) =>
       handler.handleJobStatusChanged(jobStatus)
 
-      newState match {
-        case JobStatus.FINISHED | JobStatus.CANCELED | JobStatus.FAILED =>
-          context.stop(self)
-        case _ =>
-      }
+//      newState match {
+//        case JobStatus.FINISHED | JobStatus.CANCELED | JobStatus.FAILED =>
+//          context.stop(self)
+//        case _ =>
+//      }
+
+    case RequestFrontendJSON(jobID, req) =>
+      sender() ! handler.webFrontendHandler(req)
+
+    case RequestFrontendArchivJSON() =>
+      sender() ! handler.webFrontendArchive
 
     case PoisonPill =>
       context.stop(self)
@@ -80,3 +88,7 @@ case class ReportStatistics()
 
 // override this class with your custom statistics:
 abstract class CustomStatistic extends Serializable
+
+// web frontend
+case class RequestFrontendJSON(jobID: JobID, req: HttpServletRequest)
+case class RequestFrontendArchivJSON()

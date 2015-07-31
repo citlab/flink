@@ -28,9 +28,12 @@ import org.apache.flink.streaming.statistics.jobmanager.autoscaling.ElasticTaskQ
 import org.apache.flink.streaming.statistics.message.qosreport.QosReport;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosManagerThread;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosModel;
+import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosWebStatistic;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.servlet.http.HttpServletRequest;
 
 public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandler {
 	private static final Logger LOG = LoggerFactory.getLogger(CentralQosStatisticsHandler.class);
@@ -39,6 +42,7 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 
 	private QosGraph qosGraph;
 	private QosModel qosModel;
+	private QosWebStatistic qosWebStatistic;
 	private ElasticTaskQosAutoScalingThread autoScalingThread;
 	private QosManagerThread qosManagerThread;
 
@@ -49,7 +53,8 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 
 		this.qosGraph = QosGraph.buildQosGraphFromJobConfig(executionGraph);
 		this.qosModel = new QosModel(this.qosGraph);
-		this.autoScalingThread = new ElasticTaskQosAutoScalingThread(executionGraph, this.qosGraph);
+		this.qosWebStatistic = new QosWebStatistic(executionGraph, this.qosGraph);
+		this.autoScalingThread = new ElasticTaskQosAutoScalingThread(executionGraph, this.qosGraph, qosWebStatistic);
 		this.autoScalingThread.start();
 		this.qosManagerThread = new QosManagerThread(jobID, this.qosModel, this.autoScalingThread);
 		this.qosManagerThread.start();
@@ -94,5 +99,30 @@ public class CentralQosStatisticsHandler extends AbstractCentralStatisticsHandle
 		this.qosManagerThread.shutdown();
 		this.autoScalingThread.shutdown();
 		LOG.info("Central Qos statistics handler closed!");
+	}
+
+	@Override
+	public Boolean hasWebFrontend() {
+		return true;
+	}
+
+	@Override
+	public String webFrontendName() {
+		return "QoS Statistics";
+	}
+
+	@Override
+	public String webFrontendFile() {
+		return "/qos_statistics.html";
+	}
+
+	@Override
+	public String webFrontendHandler(HttpServletRequest req) {
+		return this.qosWebStatistic.doGet(req);
+	}
+
+	@Override
+	public String webFrontendArchive() {
+		return this.qosWebStatistic.doGet(null);
 	}
 }

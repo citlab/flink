@@ -28,6 +28,7 @@ import org.apache.flink.streaming.statistics.message.AbstractQosMessage;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosConstraintSummary;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosLogger;
 import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosUtils;
+import org.apache.flink.streaming.statistics.taskmanager.qosmanager.QosWebStatistic;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGraph;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGroupEdge;
 import org.apache.flink.streaming.statistics.taskmanager.qosmodel.QosGroupVertex;
@@ -59,11 +60,11 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 
 	private final ScalingActuator scalingActuator;
 
-//	private final QosJobWebStatistic webStatistic;
+	private final QosWebStatistic webStatistic;
 
 	private AbstractScalingPolicy scalingPolicy;
 
-	public ElasticTaskQosAutoScalingThread(ExecutionGraph execGraph, QosGraph qosGraph) {
+	public ElasticTaskQosAutoScalingThread(ExecutionGraph execGraph, QosGraph qosGraph, QosWebStatistic webStatistic) {
 		this.setName("QosAutoScalingThread");
 		this.timeOfLastScaling = 0;
 		this.timeOfNextScaling = 0;
@@ -89,10 +90,7 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 		scalingPolicy = new SimpleScalingPolicy(execGraph, qosConstraints);
 		scalingActuator = new ScalingActuator(execGraph, getVertexTopologicalScores(qosGraph));
 
-//		webStatistic = new QosJobWebStatistic(execGraph, loggingInterval, qosConstraints);
-//		QosStatisticsServlet.putStatistic(this.jobID, webStatistic);
-
-//		this.start();
+		this.webStatistic = webStatistic;
 	}
 
 	private HashMap<JobVertexID, Integer> getVertexTopologicalScores(QosGraph qosGraph) {
@@ -205,7 +203,7 @@ public class ElasticTaskQosAutoScalingThread extends Thread {
 			}
 		}
 
-//		webStatistic.logConstraintSummaries(constraintSummaries);
+		webStatistic.logConstraintSummaries(constraintSummaries);
 	}
 
 	private void cleanUp() {

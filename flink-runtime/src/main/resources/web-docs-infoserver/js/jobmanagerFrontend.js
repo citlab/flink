@@ -175,11 +175,11 @@ function fillTable(table, json) {
 		poll(job.jobid);
 		if(parseInt(job.time) > timestamp)
 			timestamp = parseInt(job.time);
-		$(table).append(
-						"<h2 id=\""+job.jobid+"_title\">"+ job.jobname
-								+ " ("+ formattedTimeFromTimestamp(job.time) + ")"
-								+"</h2>"
-								+"<a id=\""+job.jobid+"_cancel\" class=\"cancel btn btn-warning\" href=\"#\" job=\""+job.jobid+"\" style=\"margin-bottom: 0.5cm\">cancel</a><br />");
+		$(table).append("<h2 id=\"" + job.jobid + "_title\">" + job.jobname + " ("+ formattedTimeFromTimestamp(job.time) + ")</h2>");
+		if (job.customStatistics)
+			$(table).append("<a class=\"btn btn-info pull-right\" href=\"" + job.customStatistics.file + "?job=" + job.jobid + "\">" + job.customStatistics.name + "</a>");
+		$(table).append("<a id=\""+job.jobid+"_cancel\" class=\"cancel btn btn-warning\" href=\"#\" job=\""+job.jobid+"\" style=\"margin-bottom: 0.5cm\">cancel</a>");
+
 		var jobtable;
 		jobtable = "<div class=\"table-responsive\">";
 		jobtable += "<table class=\"table table-bordered table-hover table-striped\" id=\""+job.jobid+"\" jobname=\""+job.jobname+"\">\

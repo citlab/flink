@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Bjoern Lohrmann, Sascha Wolke
@@ -71,6 +72,10 @@ public class QosGraph {
 
 	public Collection<JobGraphLatencyConstraint> getConstraints() {
 		return this.constraints.values();
+	}
+
+	public Map<LatencyConstraintID, JobGraphLatencyConstraint> getConstraintsWithId() {
+		return this.constraints;
 	}
 
 	public JobGraphLatencyConstraint getConstraintByID(
