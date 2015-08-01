@@ -279,8 +279,7 @@ public class StreamGraph extends StreamingPlan {
 			if (constraintBoundary.getSourceId() != null && constraintBoundary.getSourceId().equals(upStreamVertexID)) {
 				if (constraintBoundary.getTargetId() == null) {
 					constraintBoundary.setTargetId(downStreamVertexID);
-				} else {
-					throw new IllegalStateException("Only one edge allowed when defining constraints between two DataStreams.");
+					break;
 				}
 			}
 		}

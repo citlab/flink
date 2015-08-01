@@ -60,6 +60,18 @@ public class JobGraphSequence extends LinkedList<SequenceElement>
 		return element;
 	}
 
+	public SequenceElement addVertex(JobVertexID vertexID, String vertexName, int inputGateIndex,
+			int outputGateIndex, SamplingStrategy strategy) {
+
+		SequenceElement element = new SequenceElement(
+				vertexID, inputGateIndex, outputGateIndex, this.size(), vertexName, strategy);
+
+		this.add(element);
+		this.verticesInSequence.add(vertexID);
+
+		return element;
+	}
+
 	public void addEdge(JobVertexID sourceVertexID, int outputGateIndex,
 			JobVertexID targetVertexID, int inputGateIndex) {
 
