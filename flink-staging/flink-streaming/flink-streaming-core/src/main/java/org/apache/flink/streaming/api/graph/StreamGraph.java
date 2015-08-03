@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -86,7 +87,7 @@ public class StreamGraph extends StreamingPlan {
 
 	// qos statistics and constraints
 	private long qosStatisticReportInterval = -1;
-	private Map<ConstraintGroupIdentifier, ConstraintGroupConfiguration> constraintConfigurations;
+	private LinkedHashMap<ConstraintGroupIdentifier, ConstraintGroupConfiguration> constraintConfigurations;
 	private LinkedList<ConstraintGroupIdentifier> identifiers;
 
 	public StreamGraph(StreamExecutionEnvironment environment) {
@@ -107,7 +108,7 @@ public class StreamGraph extends StreamingPlan {
 		vertexIDtoLoop = new HashMap<Integer, StreamGraph.StreamLoop>();
 		sources = new HashSet<Integer>();
 
-		constraintConfigurations = new HashMap<ConstraintGroupIdentifier, ConstraintGroupConfiguration>();
+		constraintConfigurations = new LinkedHashMap<ConstraintGroupIdentifier, ConstraintGroupConfiguration>();
 		identifiers = new LinkedList<ConstraintGroupIdentifier>();
 	}
 
@@ -267,22 +268,6 @@ public class StreamGraph extends StreamingPlan {
 
 	public void addEdge(Integer upStreamVertexID, Integer downStreamVertexID,
 			StreamPartitioner<?> partitionerObject, int typeNumber, List<String> outputNames) {
-
-		List<ConstraintBoundary> constraintBoundaries = new ArrayList<ConstraintBoundary>();
-
-		for (ConstraintGroupConfiguration constraintGroupConfiguration : constraintConfigurations.values()) {
-			constraintBoundaries.add(constraintGroupConfiguration.getStart());
-			constraintBoundaries.add(constraintGroupConfiguration.getEnd());
-		}
-
-		for (ConstraintBoundary constraintBoundary : constraintBoundaries) {
-			if (constraintBoundary.getSourceId() != null && constraintBoundary.getSourceId().equals(upStreamVertexID)) {
-				if (constraintBoundary.getTargetId() == null) {
-					constraintBoundary.setTargetId(downStreamVertexID);
-					break;
-				}
-			}
-		}
 
 		StreamEdge edge = new StreamEdge(getStreamNode(upStreamVertexID),
 				getStreamNode(downStreamVertexID), typeNumber, outputNames, partitionerObject);
@@ -562,12 +547,13 @@ public class StreamGraph extends StreamingPlan {
 		identifiers.add(configuration.getIdentifier());
 	}
 
-
-	public void finishLatencyConstraint(int vertexId) {
-		ConstraintGroupIdentifier identifier = identifiers.removeLast();
-		if (identifier == null) {
-			throw new IllegalStateException("There are no open latency constraints to finish.");
+	public void finishLatencyConstraint(int vertexId, ConstraintGroupIdentifier identifier) {
+		int index = identifiers.indexOf(identifier);
+		if (index == -1) {
+			throw new IllegalStateException("There is no open latency constraint with identifier " + identifier.toString());
 		}
+
+		identifiers.remove(index);
 
 		ConstraintGroupConfiguration constraintGroupConfiguration = constraintConfigurations.get(identifier);
 		ConstraintBoundary constraintBoundary = new ConstraintBoundary();
@@ -575,8 +561,41 @@ public class StreamGraph extends StreamingPlan {
 		constraintGroupConfiguration.setEnd(constraintBoundary);
 	}
 
+	public void finishLatencyConstraint(int vertexId) {
+		if (identifiers.isEmpty()) {
+			throw new IllegalStateException("There are no open latency constraints to finish.");
+		}
+
+		finishLatencyConstraint(vertexId, identifiers.getLast());
+	}
 
 	public Map<ConstraintGroupIdentifier, ConstraintGroupConfiguration> getConstraintConfigurations() {
+		Map<Integer, Integer> lastGateCounter = new HashMap<Integer, Integer>();
+
+		List<ConstraintBoundary> boundaries = new ArrayList<ConstraintBoundary>();
+
+		for (ConstraintGroupConfiguration conf : constraintConfigurations.values()) {
+			boundaries.add(conf.getStart());
+			boundaries.add(conf.getEnd());
+		}
+
+		for (ConstraintBoundary boundary : boundaries) {
+			int sourceVertexId = boundary.getSourceId();
+			int outputGate = boundary.getOutputGate();
+			if (outputGate == -1) {
+				Integer lastOutputGate = lastGateCounter.get(sourceVertexId);
+				if (lastOutputGate == null) {
+					lastOutputGate = 0;
+				}
+				outputGate = lastOutputGate;
+				boundary.setOutputGate(outputGate);
+				lastGateCounter.put(sourceVertexId, lastOutputGate + 1);
+			}
+			List<StreamEdge> edges = getStreamNode(sourceVertexId).getOutEdges();
+			int targetVertexId = edges.get(outputGate).getTargetID();
+			boundary.setTargetId(targetVertexId);
+		}
+
 		return constraintConfigurations;
 	}
 }

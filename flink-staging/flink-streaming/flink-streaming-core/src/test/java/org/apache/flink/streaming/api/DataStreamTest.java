@@ -17,11 +17,13 @@
 
 package org.apache.flink.streaming.api;
 
+import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.FoldFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.ConnectedDataStream;
@@ -43,6 +45,7 @@ import org.apache.flink.streaming.statistics.SamplingStrategy;
 import org.apache.flink.streaming.statistics.SequenceElement;
 import org.apache.flink.streaming.util.TestStreamEnvironment;
 import org.apache.flink.test.testdata.WordCountData;
+import org.apache.flink.types.StringValue;
 import org.apache.flink.util.Collector;
 import org.junit.Test;
 
@@ -247,12 +250,12 @@ public class DataStreamTest {
 	 *      begin               end
 	 */
 	@Test
-	public void testConstraint() throws Exception {
+	public void testConstraintSimple() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		DataStreamSource<String> source = env.fromElements(WordCountData.STREAMING_COUNTS_AS_TUPLES);
 
 		DataStream<String> mapA = source
-				.beginLatencyConstraint(100, true)
+				.beginLatencyConstraint(100)
 				.map(new MapFunction<String, String>() {
 					@Override
 					public String map(String value) throws Exception {
@@ -262,7 +265,7 @@ public class DataStreamTest {
 				.finishLatencyConstraint();
 
 		DataStream<String> mapB1 = source
-				.beginLatencyConstraint(100, true)
+				.beginLatencyConstraint(100)
 				.map(new MapFunction<String, String>() {
 					@Override
 					public String map(String value) throws Exception {
@@ -304,6 +307,73 @@ public class DataStreamTest {
 
 		StreamGraph streamGraph = env.getStreamGraph();
 		streamGraph.setChaining(false);
+		JobGraph jobGraph = streamGraph.getJobGraph();
+
+		List<JobGraphLatencyConstraint> constraints = ConstraintUtil.getConstraints(jobGraph.getJobConfiguration());
+		assertEquals(2, constraints.size());
+	}
+
+
+	/**
+	 * Used test graph:
+	 *
+	 */
+	@Test
+	public void testConstraintComplex() throws Exception {
+
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.disableOperatorChaining();
+
+		DataStreamSource<String> source = env.fromElements(WordCountData.STREAMING_COUNTS_AS_TUPLES);
+
+		DataStream<String> out =
+				source
+						.beginLatencyConstraint(210, "toplist")
+						.beginLatencyConstraint(30, "sentiment")
+				.flatMap(new FlatMapFunction<String, String>() {
+					@Override
+					public void flatMap(String value, Collector<String> out) throws Exception {
+
+					}
+				})
+						.setSamplingStrategy(SamplingStrategy.READ_WRITE)
+				.flatMap(new FlatMapFunction<String, String>() {
+					@Override
+					public void flatMap(String value, Collector<String> out) throws Exception {
+
+					}
+				})
+						.setParallelism(1)
+						.setSamplingStrategy(SamplingStrategy.READ_WRITE)
+						.finishLatencyConstraint("toplist")
+				.broadcast().connect(source)
+				.flatMap(new CoFlatMapFunction<String, String, String>() {
+							@Override
+							public void flatMap1(String value, Collector<String> out) throws Exception {
+
+							}
+
+							@Override
+							public void flatMap2(String value, Collector<String> out) throws Exception {
+
+							}
+						})
+				.map(new MapFunction<String, String>() {
+					@Override
+					public String map(String value) throws Exception {
+						return null;
+					}
+				})
+						.finishLatencyConstraint("sentiment");
+		out.addSink(new SinkFunction<String>() {
+			@Override
+			public void invoke(String value) throws Exception {
+
+			}
+		});
+
+
+		StreamGraph streamGraph = env.getStreamGraph();
 		JobGraph jobGraph = streamGraph.getJobGraph();
 
 		List<JobGraphLatencyConstraint> constraints = ConstraintUtil.getConstraints(jobGraph.getJobConfiguration());
