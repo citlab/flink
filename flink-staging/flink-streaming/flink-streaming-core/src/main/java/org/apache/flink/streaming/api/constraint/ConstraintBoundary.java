@@ -24,23 +24,20 @@ package org.apache.flink.streaming.api.constraint;
  * e.g. one instance of ConstraintBoundary is needed for the beginning edge and one for the ending edge.
  */
 public class ConstraintBoundary {
+
+	private Integer sourceId;
+	private Integer targetId;
+	private int inputGate;
+	private int outputGate;
+
+	public ConstraintBoundary() {
+		inputGate = -1;
+		outputGate = -1;
+	}
+
 	/**
 	 * The vertex id of the edge source.
 	 */
-	private Integer sourceId;
-	/**
-	 * The vertex id of the edge target.
-	 */
-	private Integer targetId;
-
-	public ConstraintBoundary() {
-	}
-
-	public ConstraintBoundary(Integer sourceId, Integer targetId) {
-		this.sourceId = sourceId;
-		this.targetId = targetId;
-	}
-
 	public Integer getSourceId() {
 		return sourceId;
 	}
@@ -49,11 +46,30 @@ public class ConstraintBoundary {
 		this.sourceId = sourceId;
 	}
 
+	/**
+	 * The vertex id of the edge target.
+	 */
 	public Integer getTargetId() {
 		return targetId;
 	}
 
 	public void setTargetId(Integer targetId) {
 		this.targetId = targetId;
+	}
+
+	public int getInputGate() {
+		return inputGate;
+	}
+
+	public void setInputGate(int inputGate) {
+		this.inputGate = inputGate;
+	}
+
+	public int getOutputGate() {
+		return outputGate;
+	}
+
+	public void setOutputGate(int outputGate) {
+		this.outputGate = outputGate;
 	}
 }
